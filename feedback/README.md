@@ -23,6 +23,16 @@ real-time **Support lobby**. Admins (from VoidAuth) triage, reply live, and get 
 | Internal notes | Admins can leave notes invisible to the user. |
 | `?source=` prefill | Links from other Void apps deep-link with `?source=<app>`, prefilling the origin. |
 
+## Other VoidSuite apps
+
+| App | What it is | Repo |
+| --- | --- | --- |
+| [Board](https://github.com/voidsuite/board) | Kanban project boards with real-time multiplayer | `voidsuite/board` |
+| [2FA](https://github.com/voidsuite/2fa) | Encrypted, cloud-synced TOTP authenticator | `voidsuite/2fa` |
+| [Docs](https://github.com/voidsuite/docs) | End-to-end encrypted collaborative editor | `voidsuite/docs` |
+| [Mail](https://github.com/voidsuite/mail) | Web mail client for SMTP/POP3 | `voidsuite/mail` |
+| [VoidAuth](https://github.com/voidsuite/client) | Central OAuth / OIDC + identity server | `voidsuite/client` + `voidsuite/server` |
+
 ## Architecture
 
 ```

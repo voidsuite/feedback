@@ -101,7 +101,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <p>
             <span className="font-medium text-foreground">voidfeedback</span> — feedback &amp; support for the Void suite
           </p>
-          <p className="text-muted-foreground/70">v0.1.0</p>
+          <p className="flex items-center gap-2 text-muted-foreground/70">
+            <span>Part of</span>
+            <a href="https://github.com/voidsuite/board" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Board</a>
+            <span>·</span>
+            <a href="https://github.com/voidsuite/2fa" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">2FA</a>
+            <span>·</span>
+            <a href="https://github.com/voidsuite/docs" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Docs</a>
+            <span>·</span>
+            <a href="https://github.com/voidsuite/mail" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Mail</a>
+            <span>·</span>
+            <a href="https://github.com/voidsuite/client" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">VoidAuth</a>
+            <span className="text-muted-foreground/30">·</span>
+            <span>v0.1.0</span>
+          </p>
         </div>
       </footer>
     </div>

@@ -82,6 +82,16 @@ docker compose up -d          # serves the app + gateway on :3005
 
 The gateway serves the built client and exposes `/health` for container health checks. The escrow database lives at `server/data/vdocs.db`.
 
+## Other VoidSuite apps
+
+| App | What it is | Repo |
+| --- | --- | --- |
+| [Void Feedback](https://github.com/voidsuite/feedback) | Support & feedback hub with live admin chat | `voidsuite/feedback` |
+| [Board](https://github.com/voidsuite/board) | Kanban project boards with real-time multiplayer | `voidsuite/board` |
+| [2FA](https://github.com/voidsuite/2fa) | Encrypted, cloud-synced TOTP authenticator | `voidsuite/2fa` |
+| [Mail](https://github.com/voidsuite/mail) | Web mail client for SMTP/POP3 | `voidsuite/mail` |
+| [VoidAuth](https://github.com/voidsuite/client) | Central OAuth / OIDC + identity server | `voidsuite/client` + `voidsuite/server` |
+
 ## License
 
 MIT — see [LICENSE](LICENSE). "docs" is part of the **VoidSuite** app family.

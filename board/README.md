@@ -76,6 +76,16 @@ The database and uploads live in the `board-data` named volume, so your boards
 survive container recreates. Point `DATA_DIR` elsewhere if you'd rather keep them
 outside Docker.
 
+## Other VoidSuite apps
+
+| App | What it is | Repo |
+| --- | --- | --- |
+| [Void Feedback](https://github.com/voidsuite/feedback) | Support & feedback hub with live admin chat | `voidsuite/feedback` |
+| [2FA](https://github.com/voidsuite/2fa) | Encrypted, cloud-synced TOTP authenticator | `voidsuite/2fa` |
+| [Docs](https://github.com/voidsuite/docs) | End-to-end encrypted collaborative editor | `voidsuite/docs` |
+| [Mail](https://github.com/voidsuite/mail) | Web mail client for SMTP/POP3 | `voidsuite/mail` |
+| [VoidAuth](https://github.com/voidsuite/client) | Central OAuth / OIDC + identity server | `voidsuite/client` + `voidsuite/server` |
+
 ## License
 
 MIT — see [LICENSE](LICENSE). board is part of the **VoidSuite** app family.

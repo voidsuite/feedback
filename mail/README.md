@@ -20,6 +20,14 @@ orr you can just deploy it on Docker:
 docker compose up --build   # builds client + server, serves everything on :3003
 ```
 
+#### VoidSuite apps
+
+- **[Void Feedback](https://github.com/voidsuite/feedback)** — support & feedback hub with live admin chat
+- **[Board](https://github.com/voidsuite/board)** — Kanban project boards
+- **[2FA](https://github.com/voidsuite/2fa)** — encrypted, cloud-synced TOTP authenticator
+- **[Docs](https://github.com/voidsuite/docs)** — end-to-end encrypted collaborative editor
+- **[VoidAuth](https://github.com/voidsuite/client)** — central OAuth / OIDC + identity server
+
 #### - <img src="https://wsrv.nl/?url=https://raw.githubusercontent.com/voidsuite/.github/refs/heads/main/logo.png&w=40"  align="center"/> -
 
 </div>
