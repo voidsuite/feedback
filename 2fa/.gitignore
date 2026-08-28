@@ -1,0 +1,17 @@
+# Node
+node_modules/
+dist/
+
+# Environment — never commit real secrets
+.env
+.env.*
+!.env.example
+
+# Server environment
+server/.env
+server/.env.*
+!server/.env.example
+
+# Logs / misc
+*.log
+.DS_Store

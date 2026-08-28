@@ -1,0 +1,22 @@
+node_modules
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+dist
+build
+coverage
+.vscode
+.idea
+.credentials
+uploads/
+keys/
+
+# bun is the package manager; stray npm lockfile
+/package-lock.json
+
+# Local credentials / env copies
+.db-credentials.txt
+.env copy
+*.env.copy

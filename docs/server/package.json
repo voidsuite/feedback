@@ -1,0 +1,21 @@
+{
+  "name": "vdocs-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "docs gateway — OAuth proxy for VoidAuth, VoidAuth storage proxy, encrypted websocket relay, vault-key escrow",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.9.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "~5.9.3"
+  },
+  "license": "MIT"
+}

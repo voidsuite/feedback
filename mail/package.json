@@ -1,0 +1,18 @@
+{
+  "name": "m3il",
+  "private": true,
+  "version": "0.1.0",
+  "description": "m3il — encrypted, local-first web mail client for any provider (Void Mail by VoidSuite)",
+  "license": "MIT",
+  "scripts": {
+    "install:all": "cd client && bun install && cd ../server && bun install",
+    "dev": "echo 'Run in two terminals: bun run dev:server and bun run dev:client'",
+    "dev:client": "cd client && bun run dev",
+    "dev:server": "cd server && bun run dev",
+    "build": "cd client && bun run build",
+    "typecheck": "cd client && bunx tsc -b && cd ../server && bunx tsc --noEmit",
+    "lint": "cd client && bun run lint",
+    "start": "cd server && bun run start",
+    "verify": "bun run typecheck && bun run build && bun run lint"
+  }
+}
