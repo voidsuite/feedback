@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -70,10 +71,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 }
               />
               <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuLabel>
-                  <div className="truncate text-sm font-medium">{user?.name}</div>
-                  <div className="truncate text-xs font-normal text-muted-foreground">{user?.email}</div>
-                </DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>
+                    <div className="truncate text-sm font-medium">{user?.name}</div>
+                    <div className="truncate text-xs font-normal text-muted-foreground">{user?.email}</div>
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate("/settings")}>
                   <Settings className="size-4" /> Settings
