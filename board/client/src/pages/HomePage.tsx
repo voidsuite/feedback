@@ -158,14 +158,14 @@ export function HomePage() {
                         }
                       />
                       <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem onSelect={() => setRenaming(ws)}>
+                        <DropdownMenuItem onClick={() => setRenaming(ws)}>
                           <PenLine className="size-4" />
                           Rename
                         </DropdownMenuItem>
                         {user?.id === ws.ownerId ? (
                           <>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(ws)}>
+                            <DropdownMenuItem variant="destructive" onClick={() => setDeleting(ws)}>
                               <Trash2 className="size-4" />
                               Delete workspace
                             </DropdownMenuItem>

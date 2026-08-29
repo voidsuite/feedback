@@ -147,19 +147,19 @@ export function BoardColumn({
             }
           />
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onSelect={() => onMenuAction("rename", column)}>
+            <DropdownMenuItem onClick={() => onMenuAction("rename", column)}>
               Rename column
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onMenuAction("wip", column)}>
+            <DropdownMenuItem onClick={() => onMenuAction("wip", column)}>
               {column.wipLimit !== null ? "Change WIP limit" : "Set WIP limit"}
             </DropdownMenuItem>
             {column.wipLimit !== null ? (
-              <DropdownMenuItem onSelect={() => onMenuAction("clear-wip", column)}>
+              <DropdownMenuItem onClick={() => onMenuAction("clear-wip", column)}>
                 Remove WIP limit
               </DropdownMenuItem>
             ) : null}
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => onDeleteColumn(column)}>
+            <DropdownMenuItem variant="destructive" onClick={() => onDeleteColumn(column)}>
               Delete column
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -202,9 +202,9 @@ export function BoardColumn({
                     }
                   />
                   <ContextMenuContent className="w-40">
-                    <ContextMenuItem onSelect={() => onOpen(item)}>Open card</ContextMenuItem>
+                    <ContextMenuItem onClick={() => onOpen(item)}>Open card</ContextMenuItem>
                     <ContextMenuSeparator />
-                    <ContextMenuItem variant="destructive" onSelect={() => onDeleteItem(item)}>Delete card</ContextMenuItem>
+                    <ContextMenuItem variant="destructive" onClick={() => onDeleteItem(item)}>Delete card</ContextMenuItem>
                   </ContextMenuContent>
                 </ContextMenu>
               </React.Fragment>
@@ -257,19 +257,19 @@ export function BoardColumn({
         }
       />
       <ContextMenuContent className="w-44">
-        <ContextMenuItem onSelect={() => onMenuAction("rename", column)}>
+        <ContextMenuItem onClick={() => onMenuAction("rename", column)}>
           Rename column
         </ContextMenuItem>
-        <ContextMenuItem onSelect={() => onMenuAction("wip", column)}>
+        <ContextMenuItem onClick={() => onMenuAction("wip", column)}>
           {column.wipLimit !== null ? "Change WIP limit" : "Set WIP limit"}
         </ContextMenuItem>
         {column.wipLimit !== null ? (
-          <ContextMenuItem onSelect={() => onMenuAction("clear-wip", column)}>
+          <ContextMenuItem onClick={() => onMenuAction("clear-wip", column)}>
             Remove WIP limit
           </ContextMenuItem>
         ) : null}
         <ContextMenuSeparator />
-        <ContextMenuItem variant="destructive" onSelect={() => onDeleteColumn(column)}>
+        <ContextMenuItem variant="destructive" onClick={() => onDeleteColumn(column)}>
           Delete column
         </ContextMenuItem>
       </ContextMenuContent>

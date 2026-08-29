@@ -94,7 +94,7 @@ function MemberRow({
             }
           />
           <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem variant="destructive" onSelect={() => onRemove()}>
+            <DropdownMenuItem variant="destructive" onClick={() => onRemove()}>
               <Trash2 className="size-4" />
               Remove member
             </DropdownMenuItem>

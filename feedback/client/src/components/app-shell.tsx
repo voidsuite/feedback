@@ -59,30 +59,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Button>
             {user ? (
             <DropdownMenu>
-              <DropdownMenuTrigger>
-                <button className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar className="size-8">
-                    <AvatarImage src={user?.picture || undefined} alt={user?.name || "You"} />
-                    <AvatarFallback className="text-[10px]">{user ? initials(user.name) : "?"}</AvatarFallback>
-                  </Avatar>
-                </button>
-              </DropdownMenuTrigger>
+              <DropdownMenuTrigger
+                render={
+                  <button className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <Avatar className="size-8">
+                      <AvatarImage src={user?.picture || undefined} alt={user?.name || "You"} />
+                      <AvatarFallback className="text-[10px]">{user ? initials(user.name) : "?"}</AvatarFallback>
+                    </Avatar>
+                  </button>
+                }
+              />
               <DropdownMenuContent align="end" className="w-52">
                 <DropdownMenuLabel>
                   <div className="truncate text-sm font-medium">{user?.name}</div>
                   <div className="truncate text-xs font-normal text-muted-foreground">{user?.email}</div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => navigate("/settings")}>
+                <DropdownMenuItem onClick={() => navigate("/settings")}>
                   <Settings className="size-4" /> Settings
                 </DropdownMenuItem>
                 {isAdmin && (
-                  <DropdownMenuItem onSelect={() => navigate("/admin")}>
+                  <DropdownMenuItem onClick={() => navigate("/admin")}>
                     <Shield className="size-4" /> Admin
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={handleSignOut}>
+                <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="size-4" /> Sign out
                 </DropdownMenuItem>
               </DropdownMenuContent>

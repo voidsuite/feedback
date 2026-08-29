@@ -298,11 +298,11 @@ export function WorkspacePage() {
                           }
                         />
                         <DropdownMenuContent align="end" className="w-44">
-                          <DropdownMenuItem onSelect={() => setRenaming({ kind: "project", id: p.id, name: p.name })}>
+                          <DropdownMenuItem onClick={() => setRenaming({ kind: "project", id: p.id, name: p.name })}>
                             <PenLine className="size-4" />
                             Rename
                           </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => setRecoloring(p)}>
+                          <DropdownMenuItem onClick={() => setRecoloring(p)}>
                             <span className="flex size-4 items-center justify-center gap-1" aria-hidden="true">
                               {PROJECT_COLORS.map((c) => (
                                 <span key={c} className="size-2 rounded-full" style={{ background: c }} />
@@ -311,7 +311,7 @@ export function WorkspacePage() {
                             Recolor
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem variant="destructive" onSelect={() => setDeleting({ kind: "project", id: p.id, name: p.name })}>
+                          <DropdownMenuItem variant="destructive" onClick={() => setDeleting({ kind: "project", id: p.id, name: p.name })}>
                             <Trash2 className="size-4" />
                             Delete project
                           </DropdownMenuItem>
@@ -389,12 +389,12 @@ export function WorkspacePage() {
                                   }
                                 />
                                 <DropdownMenuContent align="end" className="w-40">
-                                  <DropdownMenuItem onSelect={() => setRenaming({ kind: "board", id: b.id, name: b.name })}>
+                                  <DropdownMenuItem onClick={() => setRenaming({ kind: "board", id: b.id, name: b.name })}>
                                     <PenLine className="size-4" />
                                     Rename
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem variant="destructive" onSelect={() => setDeleting({ kind: "board", id: b.id, name: b.name })}>
+                                  <DropdownMenuItem variant="destructive" onClick={() => setDeleting({ kind: "board", id: b.id, name: b.name })}>
                                     <Trash2 className="size-4" />
                                     Delete board
                                   </DropdownMenuItem>
