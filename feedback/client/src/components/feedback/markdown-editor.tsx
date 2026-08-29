@@ -12,6 +12,7 @@ import { Markdown } from "./markdown"
  * Textarea so this can drop in as a 1:1 replacement.
  */
 export function MarkdownEditor({
+  id,
   value,
   onChange,
   placeholder = "Markdown supported…",
@@ -20,6 +21,7 @@ export function MarkdownEditor({
   autoFocus,
   className,
 }: {
+  id?: string
   value: string
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
   placeholder?: string
@@ -34,6 +36,7 @@ export function MarkdownEditor({
     <div className={cn("space-y-2", className)}>
       <div className="relative">
         <textarea
+          id={id}
           rows={rows}
           placeholder={placeholder}
           value={value}

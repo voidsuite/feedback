@@ -4,6 +4,8 @@ WORKDIR /app/client
 COPY client/package.json ./
 RUN bun install
 COPY client/ ./
+ARG VITE_FEEDBACK_URL
+ENV VITE_FEEDBACK_URL=$VITE_FEEDBACK_URL
 RUN bun run build
 
 # --- Stage 2: install production server deps -----------------------------------
