@@ -5,17 +5,38 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MarkdownEditor } from "./markdown-editor"
-import { api } from "@/lib/api"
-import type { ThreadType, ThreadPriority, ThreadDetail } from "@/lib/types"
+import { api, type ThreadType, type ThreadPriority, type ThreadDetail, type UploadResult } from "@/lib/api"
 import { PRIORITY_LABEL } from "@/lib/types"
+
+/** Apps users can manually attribute their feedback to. */
+const SOURCE_APPS: { value: string; label: string; url: string }[] = [
+  { value: "board", label: "Board", url: "https://board.stwupid.tech" },
+  { value: "2fa", label: "2FA", url: "https://2fa.stwupid.tech" },
+  { value: "docs", label: "Docs", url: "https://docs.stwupid.tech" },
+  { value: "mail", label: "Mail", url: "https://mail.stwupid.tech" },
+  { value: "client", label: "VoidAuth", url: "https://client.stwupid.tech" },
+  { value: "feedback", label: "Void Feedback", url: "" },
+]
 
 export function SubmitForm({ sourceApp, onCreated, autoFocus }: { sourceApp?: string | null; onCreated: (thread: ThreadDetail) => void; autoFocus?: boolean }) {
   const [type, setType] = React.useState<ThreadType>("question")
   const [title, setTitle] = React.useState("")
   const [body, setBody] = React.useState("")
   const [priority, setPriority] = React.useState<ThreadPriority>("medium")
+  const [source, setSource] = React.useState<string>(sourceApp || "")
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState("")
+
+  // If ?source=<app> was passed in the URL, auto-select it but still allow
+  // the user to change it.
+  React.useEffect(() => {
+    if (sourceApp) setSource(sourceApp)
+  }, [sourceApp])
+
+  async function uploadImage(file: File): Promise<string> {
+    const result: UploadResult = await api.uploadImage(file)
+    return `![${file.name}](${result.url})`
+  }
 
   async function submit() {
     if (!title.trim()) {
@@ -25,9 +46,16 @@ export function SubmitForm({ sourceApp, onCreated, autoFocus }: { sourceApp?: st
     setBusy(true)
     setError("")
     try {
-      const { thread } = await api.createThread({ type, sourceApp: sourceApp ?? null, title: title.trim(), bodyMarkdown: body, priority })
+      const { thread } = await api.createThread({
+        type,
+        sourceApp: source ? source : null,
+        title: title.trim(),
+        bodyMarkdown: body,
+        priority,
+      })
       setTitle("")
       setBody("")
+      setSource(sourceApp ?? "")
       onCreated(thread)
     } catch (e: any) {
       setError(e?.message || "Failed to submit")
@@ -63,9 +91,40 @@ export function SubmitForm({ sourceApp, onCreated, autoFocus }: { sourceApp?: st
               <SelectItem value="question">Question</SelectItem>
               <SelectItem value="feature">Feature request</SelectItem>
               <SelectItem value="bug">Bug report</SelectItem>
+              <SelectItem value="support">Support chat</SelectItem>
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="fb-source">Source app</Label>
+        <div className="flex items-center gap-2">
+          <Select
+            value={source}
+            onValueChange={(v) => setSource(v ?? "")}
+            disabled={sourceApp !== null && sourceApp !== undefined}
+          >
+            <SelectTrigger id="fb-source" className="w-full max-w-xs">
+              <SelectValue placeholder="Select an app (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              {SOURCE_APPS.map((app) => (
+                <SelectItem key={app.value} value={app.value}>
+                  {app.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {sourceApp && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+              Auto-detected from <span className="font-semibold">{sourceApp}</span>
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground/60">
+          This pre-fills which Void app your feedback is about.
+        </p>
       </div>
 
       <div className="space-y-1.5">
@@ -74,7 +133,8 @@ export function SubmitForm({ sourceApp, onCreated, autoFocus }: { sourceApp?: st
           id="fb-body"
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="Add context, steps to reproduce, or the feature you'd love to see. Markdown supported."
+          onImageUpload={uploadImage}
+          placeholder="Add context, steps to reproduce, or the feature you'd love to see. Markdown supported. Drag images or click the image icon to upload."
           rows={5}
         />
       </div>
@@ -95,9 +155,9 @@ export function SubmitForm({ sourceApp, onCreated, autoFocus }: { sourceApp?: st
           </Select>
         </div>
 
-        {sourceApp ? (
+        {source ? (
           <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-            Reporting from: {sourceApp}
+            Reporting from: {SOURCE_APPS.find((a) => a.value === source)?.label || source}
           </span>
         ) : (
           <span className="ml-auto text-xs text-muted-foreground">Public feedback helps the whole Void suite</span>

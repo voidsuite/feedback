@@ -20,6 +20,7 @@ import messagesRoutes from "./routes/messages.js"
 import votesRoutes from "./routes/votes.js"
 import adminRoutes from "./routes/admin.js"
 import notificationsRoutes from "./routes/notifications.js"
+import uploadsRoutes, { uploadStatic } from "./routes/uploads.js"
 import { wsHandlers, handleWsUpgrade } from "./routes/ws.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -55,6 +56,8 @@ app.route("/api/threads", messagesRoutes)
 app.route("/api/threads", votesRoutes)
 app.route("/api/admin", adminRoutes)
 app.route("/api/admin/notifications", notificationsRoutes)
+app.route("/api/uploads", uploadsRoutes)
+app.route("/uploads", uploadStatic)
 
 app.get("/health", (c) => c.json({ status: "ok", service: "voidfeedback" }))
 

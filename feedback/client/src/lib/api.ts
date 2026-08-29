@@ -207,6 +207,32 @@ export function testTarget(id: string): Promise<{ ok: boolean; error?: string }>
   return gateway(`/api/admin/notifications/test/${id}`, { method: "POST" })
 }
 
+// --- Uploads ---
+
+export interface UploadResult {
+  url: string
+  filename: string
+  width?: number
+  height?: number
+  size: number
+}
+
+/** Upload a single image attachment. Returns the URL to embed in markdown. */
+export async function uploadImage(file: File): Promise<UploadResult> {
+  const formData = new FormData()
+  formData.append("file", file)
+  const res = await fetch(`${gatewayBase}/api/uploads`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data?.error || `Upload failed (${res.status})`)
+  }
+  return (await res.json()) as UploadResult
+}
+
 // --- Realtime ---
 
 export function openThreadSocket(threadId: string): WebSocket {
@@ -255,6 +281,7 @@ export const api = {
   updateTarget,
   deleteTarget,
   testTarget,
+  uploadImage,
   openThreadSocket,
   openSupportSocket,
   openAdminSocket,

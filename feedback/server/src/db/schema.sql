@@ -95,3 +95,18 @@ CREATE INDEX IF NOT EXISTS idx_threads_assignee ON feedback_threads(assignee_id)
 CREATE INDEX IF NOT EXISTS idx_messages_thread ON feedback_messages(thread_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_votes_thread ON feedback_votes(thread_id);
 CREATE INDEX IF NOT EXISTS idx_targets_type ON notification_targets(type);
+
+-- Image attachments on threads and messages.
+CREATE TABLE IF NOT EXISTS feedback_attachments (
+  id           TEXT PRIMARY KEY,             -- attachment id
+  thread_id    TEXT REFERENCES feedback_threads(id) ON DELETE CASCADE,
+  message_id   TEXT REFERENCES feedback_messages(id) ON DELETE CASCADE,
+  filename     TEXT NOT NULL,                -- original filename
+  content_type TEXT NOT NULL,               -- mime type
+  size_bytes   INTEGER NOT NULL,            -- file size
+  thumb_url    TEXT,                         -- thumbnail (for images)
+  url          TEXT NOT NULL,                -- relative url to serve the file
+  created_at   INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_attachments_thread ON feedback_attachments(thread_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_message ON feedback_attachments(message_id);
