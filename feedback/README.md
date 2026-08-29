@@ -14,13 +14,14 @@ real-time **Support lobby**. Admins (from VoidAuth) triage, reply live, and get 
 | Feature | How it works |
 | --- | --- |
 | Sign in with VoidAuth | OAuth 2.0 + PKCE against VoidAuth — the gateway mints an httpOnly session cookie. |
-| Submit feedback | Questions / feature requests / bug reports, with Markdown bodies and a source app. |
-| Live admin chat | Every thread is a real-time chat room (authenticated WebSocket); admins reply live. |
+| Submit feedback | Questions / feature requests / bug reports, with live Markdown editing (split-pane editor + preview) and a source app. |
+| Live admin chat | Every thread is a real-time chat room (authenticated WebSocket); admins and users exchange Markdown-formatted replies with a live preview. |
 | Support lobby | A separate real-time space for instant help; users see when admins are online. |
 | Admin panel | Dashboard, filterable inbox, per-thread controls, notifications, per-app stats. |
 | Notifications | Discord / Slack / Telegram / Email / Webhook / in-app on new feedback, replies, status & assignment. |
 | Public roadmap | Feature requests can be public and voted on, shown in a status pipeline (Planned → Shipped). |
-| Internal notes | Admins can leave notes invisible to the user. |
+| Internal notes | Admins can leave Markdown-formatted notes invisible to the user. |
+| Markdown editing | Both the issue body (admin can edit) and all replies use a shared MarkdownEditor with split-pane live preview. |
 | `?source=` prefill | Links from other Void apps deep-link with `?source=<app>`, prefilling the origin. |
 
 ## Other VoidSuite apps

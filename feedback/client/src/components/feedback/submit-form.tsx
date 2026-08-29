@@ -2,9 +2,9 @@ import * as React from "react"
 import { Send, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { MarkdownEditor } from "./markdown-editor"
 import { api } from "@/lib/api"
 import type { ThreadType, ThreadPriority, ThreadDetail } from "@/lib/types"
 import { PRIORITY_LABEL } from "@/lib/types"
@@ -70,12 +70,12 @@ export function SubmitForm({ sourceApp, onCreated, autoFocus }: { sourceApp?: st
 
       <div className="space-y-1.5">
         <Label htmlFor="fb-body">Details</Label>
-        <Textarea
+        <MarkdownEditor
           id="fb-body"
-          rows={5}
-          placeholder="Add context, steps to reproduce, or the feature you'd love to see. Markdown supported."
           value={body}
           onChange={(e) => setBody(e.target.value)}
+          placeholder="Add context, steps to reproduce, or the feature you'd love to see. Markdown supported."
+          rows={5}
         />
       </div>
 

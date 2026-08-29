@@ -2,9 +2,8 @@ import * as React from "react"
 import { Send, Lock, Loader2 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Markdown } from "./markdown"
+import { MarkdownEditor } from "./markdown-editor"
 import { api, openThreadSocket } from "@/lib/api"
 import type { Message, ThreadDetail } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -109,9 +108,7 @@ export function LiveChat({ thread, isAdmin, onThreadUpdate }: { thread: ThreadDe
 
       <div className="border-t border-border p-3">
         <div className="flex items-end gap-2">
-          <Textarea
-            rows={2}
-            placeholder={isAdmin ? "Reply… (toggle internal note for admins only)" : "Write a reply…"}
+          <MarkdownEditor
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -120,7 +117,9 @@ export function LiveChat({ thread, isAdmin, onThreadUpdate }: { thread: ThreadDe
                 send()
               }
             }}
-            className="min-h-[44px] flex-1"
+            placeholder={isAdmin ? "Reply… (toggle internal note for admins only). Markdown supported." : "Write a reply… Markdown supported."}
+            rows={2}
+            className="flex-1"
           />
           {isAdmin && (
             <button

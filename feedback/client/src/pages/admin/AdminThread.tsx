@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useParams, useNavigate } from "react-router"
-import { ArrowLeft, Trash2, UserCheck, UserX } from "lucide-react"
+import { ArrowLeft, Trash2, UserCheck, UserX, Edit, Save, X } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -8,6 +8,8 @@ import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { LiveChat } from "@/components/feedback/live-chat"
 import { TypeBadge } from "@/components/feedback/badges"
+import { Markdown } from "@/components/feedback/markdown"
+import { MarkdownEditor } from "@/components/feedback/markdown-editor"
 import { api, type ThreadDetail, type ThreadStatus, type ThreadPriority } from "@/lib/api"
 import { useAuth } from "@/contexts/auth"
 
@@ -18,6 +20,8 @@ export function AdminThread() {
   const [thread, setThread] = React.useState<ThreadDetail | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [busy, setBusy] = React.useState(false)
+  const [editingBody, setEditingBody] = React.useState(false)
+  const [draftBody, setDraftBody] = React.useState("")
 
   const load = React.useCallback(async () => {
     if (!id) return
@@ -65,7 +69,40 @@ export function AdminThread() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
-        <LiveChat thread={thread} isAdmin onThreadUpdate={setThread} />
+        <div className="space-y-4">
+          {editingBody ? (
+            <Card className="p-4">
+              <MarkdownEditor
+                value={draftBody}
+                onChange={(e) => setDraftBody(e.target.value)}
+                placeholder="Edit issue details… Markdown supported."
+                rows={6}
+              />
+              <div className="mt-3 flex gap-2">
+                <Button size="sm" className="gap-1.5" onClick={async () => {
+                  try {
+                    const { thread: updated } = await api.updateThread(thread!.id, { bodyMarkdown: draftBody })
+                    setThread(updated)
+                    setEditingBody(false)
+                  } catch { /* ignore */ }
+                }}>
+                  <Save className="size-3.5" /> Save
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => { setEditingBody(false); setDraftBody("") }}>
+                  <X className="size-3.5" /> Cancel
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <Card className="p-4">
+              {thread.bodyMarkdown ? <Markdown content={thread.bodyMarkdown} /> : <p className="text-sm text-muted-foreground/50">No details provided.</p>}
+              <Button variant="ghost" size="sm" className="mt-2 gap-1.5" onClick={() => { setDraftBody(thread.bodyMarkdown); setEditingBody(true) }}>
+                <Edit className="size-3.5" /> Edit body
+              </Button>
+            </Card>
+          )}
+          <LiveChat thread={thread} isAdmin onThreadUpdate={setThread} />
+        </div>
 
         <aside className="space-y-4">
           <Card className="space-y-4 p-4">
