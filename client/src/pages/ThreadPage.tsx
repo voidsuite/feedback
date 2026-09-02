@@ -39,6 +39,32 @@ export function ThreadPage() {
 
   React.useEffect(() => { load() }, [load])
 
+  function computeOptimistic(p: Parameters<typeof api.updateThread>[1]): ThreadDetail {
+    const next = { ...thread! }
+    if (p.type !== undefined) next.type = p.type
+    if (p.status !== undefined) next.status = p.status
+    if (p.priority !== undefined) next.priority = p.priority
+    if (p.isPublic !== undefined) next.isPublic = p.isPublic
+    if (p.assigneeId !== undefined) {
+      next.assignee = p.assigneeId
+        ? { id: p.assigneeId, name: user?.name ?? "Unknown", picture: user?.picture ?? null }
+        : null
+    }
+    return next
+  }
+
+  async function optimisticPatch(patch: Parameters<typeof api.updateThread>[1]) {
+    if (!thread) return
+    const previous = thread
+    setThread(computeOptimistic(patch))
+    try {
+      const { thread: updated } = await api.updateThread(thread.id, patch)
+      setThread(updated)
+    } catch {
+      setThread(previous)
+    }
+  }
+
   if (loading) return <AppShell><p className="py-10 text-center text-sm text-muted-foreground">Loading…</p></AppShell>
   if (notFound || !thread) return (
     <AppShell>
@@ -112,7 +138,7 @@ export function ThreadPage() {
                 )}
               </Card>
             )}
-            <LiveChat thread={thread} isAdmin={isAdmin} onThreadUpdate={setThread} />
+            <LiveChat thread={thread} isAdmin={isAdmin} currentUserPicture={user?.picture} onThreadUpdate={setThread} />
           </div>
 
           <aside className="space-y-4">
@@ -128,7 +154,7 @@ export function ThreadPage() {
             <Card className="space-y-3 p-4 text-sm">
               {(isAdmin || thread.author.id === user?.id) ? (
                 <Row label="Type">
-                  <Select value={thread.type} onValueChange={(v) => api.updateThread(thread.id, { type: v as ThreadType }).then(({ thread: t }) => setThread(t))}>
+                  <Select value={thread.type} onValueChange={(v) => optimisticPatch({ type: v as ThreadType })}>
                     <SelectTrigger className="h-auto w-auto border-0 bg-transparent p-0 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="question">{TYPE_LABEL.question}</SelectItem>
@@ -144,7 +170,7 @@ export function ThreadPage() {
               <Row label="Status"><StatusBadge status={thread.status} /></Row>
               {(isAdmin || thread.author.id === user?.id) ? (
                 <Row label="Priority">
-                  <Select value={thread.priority} onValueChange={(v) => api.updateThread(thread.id, { priority: v as ThreadPriority }).then(({ thread: t }) => setThread(t))}>
+                  <Select value={thread.priority} onValueChange={(v) => optimisticPatch({ priority: v as ThreadPriority })}>
                     <SelectTrigger className="h-auto w-auto border-0 bg-transparent p-0 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="low">{PRIORITY_LABEL.low}</SelectItem>

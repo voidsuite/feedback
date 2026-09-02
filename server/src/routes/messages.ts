@@ -42,7 +42,11 @@ messages.post("/:id/messages", async (c) => {
   })
 
   // For display: admin messages in non-internal threads show as "Void Team"
-  const displayName = admin && !isInternal ? "Void Team" : user.name
+  // unless they explicitly choose to comment as themselves
+  const requestedName = typeof body?.displayName === "string" ? body.displayName.trim() : ""
+  const displayName = admin && !isInternal
+    ? (requestedName === "self" ? user.name : "Void Team")
+    : user.name
   const displayMessage = { ...message, author: { ...message.author, name: displayName } }
 
   // Internal notes go only to admins; everything else goes to the thread room

@@ -22,6 +22,7 @@ export function SubmitForm({ sourceApp, onCreated, autoFocus }: { sourceApp?: st
   const [title, setTitle] = React.useState("")
   const [body, setBody] = React.useState("")
   const [priority, setPriority] = React.useState<ThreadPriority>("medium")
+  const [selectedApp, setSelectedApp] = React.useState<string>(sourceApp || "")
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState("")
 
@@ -35,12 +36,16 @@ export function SubmitForm({ sourceApp, onCreated, autoFocus }: { sourceApp?: st
       setError("Please add a short title.")
       return
     }
+    if (!sourceApp && !selectedApp) {
+      setError("Please select which app this is for.")
+      return
+    }
     setBusy(true)
     setError("")
     try {
       const { thread } = await api.createThread({
         type,
-        sourceApp: sourceApp ?? null,
+        sourceApp: sourceApp || selectedApp || null,
         title: title.trim(),
         bodyMarkdown: body,
         priority,
@@ -88,6 +93,22 @@ export function SubmitForm({ sourceApp, onCreated, autoFocus }: { sourceApp?: st
         </div>
       </div>
 
+      {!sourceApp && (
+        <div className="space-y-1.5">
+          <Label>Which app is this for?</Label>
+          <Select value={selectedApp} onValueChange={setSelectedApp}>
+            <SelectTrigger className="w-full sm:w-64">
+              <SelectValue placeholder="Select an app…" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(SOURCE_APP_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="space-y-1.5">
         <Label htmlFor="fb-body">Details</Label>
         <MarkdownEditor
@@ -120,8 +141,12 @@ export function SubmitForm({ sourceApp, onCreated, autoFocus }: { sourceApp?: st
           <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
             Reporting from: {SOURCE_APP_LABELS[sourceApp] || sourceApp}
           </span>
+        ) : selectedApp ? (
+          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            {SOURCE_APP_LABELS[selectedApp] || selectedApp}
+          </span>
         ) : (
-          <span className="ml-auto text-xs text-muted-foreground">Public feedback helps the whole Void suite</span>
+          <span className="ml-auto text-xs text-muted-foreground">Select which app this is for above</span>
         )}
 
         <Button onClick={submit} disabled={busy} className="gap-1.5">

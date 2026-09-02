@@ -19,7 +19,6 @@ export function AdminThread() {
   const { user } = useAuth()
   const [thread, setThread] = React.useState<ThreadDetail | null>(null)
   const [loading, setLoading] = React.useState(true)
-  const [busy, setBusy] = React.useState(false)
   const [editingBody, setEditingBody] = React.useState(false)
   const [draftBody, setDraftBody] = React.useState("")
 
@@ -34,13 +33,30 @@ export function AdminThread() {
 
   React.useEffect(() => { load() }, [load])
 
-  async function patch(p: Parameters<typeof api.updateThread>[1]) {
-    if (!thread || busy) return
-    setBusy(true)
+  function computeOptimistic(p: Parameters<typeof api.updateThread>[1]): ThreadDetail {
+    const next = { ...thread! }
+    if (p.type !== undefined) next.type = p.type
+    if (p.status !== undefined) next.status = p.status
+    if (p.priority !== undefined) next.priority = p.priority
+    if (p.isPublic !== undefined) next.isPublic = p.isPublic
+    if (p.assigneeId !== undefined) {
+      next.assignee = p.assigneeId
+        ? { id: p.assigneeId, name: user?.name ?? "Unknown", picture: user?.picture ?? null }
+        : null
+    }
+    return next
+  }
+
+  async function optimisticPatch(p: Parameters<typeof api.updateThread>[1]) {
+    if (!thread) return
+    const previous = thread
+    setThread(computeOptimistic(p))
     try {
       const { thread: updated } = await api.updateThread(thread.id, p)
       setThread(updated)
-    } catch { /* */ } finally { setBusy(false) }
+    } catch {
+      setThread(previous)
+    }
   }
 
   async function remove() {
@@ -101,14 +117,14 @@ export function AdminThread() {
               </Button>
             </Card>
           )}
-          <LiveChat thread={thread} isAdmin onThreadUpdate={setThread} />
+          <LiveChat thread={thread} isAdmin currentUserPicture={user?.picture} onThreadUpdate={setThread} />
         </div>
 
         <aside className="space-y-4">
           <Card className="space-y-4 p-4">
             <div className="space-y-1.5">
               <Label>Status</Label>
-              <Select value={thread.status} onValueChange={(v) => patch({ status: v as ThreadStatus })}>
+              <Select value={thread.status} onValueChange={(v) => optimisticPatch({ status: v as ThreadStatus })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="open">Open</SelectItem>
@@ -123,7 +139,7 @@ export function AdminThread() {
             </div>
             <div className="space-y-1.5">
               <Label>Priority</Label>
-              <Select value={thread.priority} onValueChange={(v) => patch({ priority: v as ThreadPriority })}>
+              <Select value={thread.priority} onValueChange={(v) => optimisticPatch({ priority: v as ThreadPriority })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="low">Low</SelectItem>
@@ -135,14 +151,14 @@ export function AdminThread() {
             </div>
             <div className="flex items-center justify-between">
               <Label htmlFor="public">Public on roadmap</Label>
-              <Switch id="public" checked={thread.isPublic} onCheckedChange={(v) => patch({ isPublic: v })} />
+              <Switch id="public" checked={thread.isPublic} onCheckedChange={(v) => optimisticPatch({ isPublic: v })} />
             </div>
             <div className="flex items-center justify-between border-t border-border pt-3">
               <div className="text-sm">
                 <p className="text-muted-foreground">Assignee</p>
                 <p className="font-medium">{thread.assignee?.name ?? "Unassigned"}</p>
               </div>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => patch({ assigneeId: assignedToMe ? null : user!.id })}>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => optimisticPatch({ assigneeId: assignedToMe ? null : user!.id })}>
                 {assignedToMe ? <><UserX className="size-3.5" /> Unassign</> : <><UserCheck className="size-3.5" /> Assign to me</>}
               </Button>
             </div>

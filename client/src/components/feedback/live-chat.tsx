@@ -1,9 +1,9 @@
 import * as React from "react"
-import { Send, Lock, Loader2, Trash2, CircleDot } from "lucide-react"
+import { Send, Lock, Loader2, Trash2, CircleDot, ChevronDown, User, Shield } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { MarkdownEditor } from "./markdown-editor"
+import { Textarea } from "@/components/ui/textarea"
 import { Markdown } from "./markdown"
 import { api, openThreadSocket } from "@/lib/api"
 import type { Message, ThreadDetail } from "@/lib/types"
@@ -17,12 +17,14 @@ function time(ts: number): string {
   return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 }
 
-export function LiveChat({ thread, isAdmin, onThreadUpdate }: { thread: ThreadDetail; isAdmin: boolean; onThreadUpdate: (t: ThreadDetail) => void }) {
+export function LiveChat({ thread, isAdmin, currentUserPicture, onThreadUpdate }: { thread: ThreadDetail; isAdmin: boolean; currentUserPicture?: string | null; onThreadUpdate: (t: ThreadDetail) => void }) {
   const [messages, setMessages] = React.useState<Message[]>(thread.messages)
   const [draft, setDraft] = React.useState("")
   const [internal, setInternal] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [online, setOnline] = React.useState<{ userId: string; name: string; picture?: string | null }[]>([])
+  const [commentAs, setCommentAs] = React.useState<"team" | "self">("team")
+  const [showAsDropdown, setShowAsDropdown] = React.useState(false)
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const wsRef = React.useRef<WebSocket | null>(null)
 
@@ -58,9 +60,9 @@ export function LiveChat({ thread, isAdmin, onThreadUpdate }: { thread: ThreadDe
     const text = draft.trim()
     if (!text || busy) return
     setBusy(true)
-    const optimistic = internal && isAdmin
+    const isInternalMsg = internal && isAdmin
     try {
-      const { message } = await api.sendMessage(thread.id, text, optimistic)
+      const { message } = await api.sendMessage(thread.id, text, isInternalMsg, commentAs)
       setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]))
       setDraft("")
       setInternal(false)
@@ -116,7 +118,11 @@ export function LiveChat({ thread, isAdmin, onThreadUpdate }: { thread: ThreadDe
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="font-medium text-foreground">{m.author.name}</span>
-                    {isAdminMsg && <span className="rounded bg-primary/10 px-1 py-0.5 text-[10px] font-medium text-primary">admin</span>}
+                    {isAdminMsg && (
+                      <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                        <Shield className="size-2.5" /> admin
+                      </span>
+                    )}
                     {m.isInternal && <span className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1 py-0.5 text-[10px] text-amber-600"><Lock className="size-2.5" /> internal</span>}
                     <span>{time(m.createdAt)}</span>
                     {canDelete && (
@@ -143,7 +149,59 @@ export function LiveChat({ thread, isAdmin, onThreadUpdate }: { thread: ThreadDe
       <div className="border-t border-border p-3">
         <div className="flex items-end gap-2">
           <div className="flex-1 min-w-0">
-            <MarkdownEditor
+            {isAdmin && (
+              <div className="relative mb-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAsDropdown(!showAsDropdown)}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {commentAs === "team" ? (
+                    <>
+                      <Shield className="size-3" /> Commenting as <span className="font-medium text-foreground">Void Team</span>
+                    </>
+                  ) : (
+                    <>
+                      <User className="size-3" /> Commenting as <span className="font-medium text-foreground">yourself</span>
+                    </>
+                  )}
+                  <ChevronDown className="size-3" />
+                </button>
+                {showAsDropdown && (
+                  <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border border-border bg-popover p-1 shadow-md">
+                    <button
+                      type="button"
+                      onClick={() => { setCommentAs("team"); setShowAsDropdown(false) }}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+                        commentAs === "team" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <Shield className="size-3.5" />
+                      <div className="text-left">
+                        <div className="font-medium">Void Team</div>
+                        <div className="text-muted-foreground">Reply as the team</div>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setCommentAs("self"); setShowAsDropdown(false) }}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+                        commentAs === "self" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <User className="size-3.5" />
+                      <div className="text-left">
+                        <div className="font-medium">Yourself</div>
+                        <div className="text-muted-foreground">Reply with your name</div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            <Textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -152,8 +210,9 @@ export function LiveChat({ thread, isAdmin, onThreadUpdate }: { thread: ThreadDe
                   send()
                 }
               }}
-              placeholder={isAdmin ? "Reply as Void Team… (toggle internal note for admins only). Markdown supported." : "Write a reply… Markdown supported."}
+              placeholder={isAdmin ? (commentAs === "team" ? "Reply as Void Team…" : "Reply as yourself…") : "Write a reply…"}
               rows={2}
+              className="resize-none text-sm"
             />
           </div>
           {isAdmin && (

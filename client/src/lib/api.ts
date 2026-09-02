@@ -163,8 +163,8 @@ export function listMessages(threadId: string): Promise<{ messages: Message[] }>
   return gateway(`/api/threads/${threadId}/messages`)
 }
 
-export function sendMessage(threadId: string, body: string, isInternal = false): Promise<{ message: Message }> {
-  return gateway(`/api/threads/${threadId}/messages`, { method: "POST", body: JSON.stringify({ body, isInternal }) })
+export function sendMessage(threadId: string, body: string, isInternal = false, displayName?: "self" | "team"): Promise<{ message: Message }> {
+  return gateway(`/api/threads/${threadId}/messages`, { method: "POST", body: JSON.stringify({ body, isInternal, displayName }) })
 }
 
 export function deleteMessage(threadId: string, messageId: string): Promise<{ ok: boolean }> {
