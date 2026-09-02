@@ -1,22 +1,19 @@
 import * as React from "react"
 import {
-  Eye, Edit3, Image as ImageIcon, Upload, X, Bold, Italic, Strikethrough,
+  Image as ImageIcon, Upload, Bold, Italic, Strikethrough,
   Code, List, ListOrdered, Quote, Link, Hash, Minus, HelpCircle,
-  Columns2, SplitSquareHorizontal,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Markdown } from "./markdown"
 import { api } from "@/lib/api"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
-type ViewMode = "write" | "split" | "preview"
-
 export function MarkdownEditor({
   id,
   value,
   onChange,
   placeholder = "Write something…",
-  rows = 5,
+  rows = 8,
   onKeyDown,
   autoFocus,
   className,
@@ -32,7 +29,6 @@ export function MarkdownEditor({
   className?: string
   onImageUpload?: (file: File) => Promise<string>
 }) {
-  const [viewMode, setViewMode] = React.useState<ViewMode>("write")
   const [uploading, setUploading] = React.useState(false)
   const [dragOver, setDragOver] = React.useState(false)
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
@@ -119,9 +115,7 @@ export function MarkdownEditor({
     const files = e.dataTransfer.files
     if (!files?.length) return
     for (const file of Array.from(files)) {
-      if (file.type.startsWith("image/")) {
-        handleFileUpload(file)
-      }
+      if (file.type.startsWith("image/")) handleFileUpload(file)
     }
   }
 
@@ -178,7 +172,7 @@ export function MarkdownEditor({
     { icon: Code, label: "Code block", onClick: codeBlock },
   ]
 
-  const wordCount = value.trim() ? value.trim().split(/\s+/).length : 0
+  const textareaHeight = (rows * 1.6 + 1) * 16
 
   return (
     <div
@@ -187,131 +181,75 @@ export function MarkdownEditor({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
     >
-      {/* Top bar */}
+      {/* Toolbar */}
       <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-2 py-1">
-        {/* Toolbar buttons - only in write/split */}
-        {viewMode !== "preview" && (
-          <>
-            <div className="flex flex-wrap items-center gap-0.5">
-              {toolbarButtons.map((btn) => (
-                <button
-                  key={btn.label}
-                  type="button"
-                  tabIndex={-1}
-                  onClick={btn.onClick}
-                  className="rounded p-1.5 text-muted-foreground/70 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  title={btn.shortcut ? `${btn.label} (${btn.shortcut})` : btn.label}
-                >
-                  <btn.icon className="size-3.5" />
-                </button>
-              ))}
-              <div className="mx-1 h-4 w-px bg-border" />
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="rounded p-1.5 text-muted-foreground/70 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                title="Upload image"
-              >
-                {uploading ? <Upload className="size-3.5 animate-pulse" /> : <ImageIcon className="size-3.5" />}
-              </button>
-              <HelpMenu onInsert={insertAtCursor} />
-            </div>
-            <div className="flex-1" />
-          </>
-        )}
-
-        {/* View mode toggle */}
-        <div className="flex items-center rounded-md border border-border bg-background p-0.5">
-          <ModeButton
-            active={viewMode === "write"}
-            onClick={() => setViewMode("write")}
-            title="Write"
+        <div className="flex flex-wrap items-center gap-0.5">
+          {toolbarButtons.map((btn) => (
+            <button
+              key={btn.label}
+              type="button"
+              tabIndex={-1}
+              onClick={btn.onClick}
+              className="rounded p-1.5 text-muted-foreground/70 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              title={btn.shortcut ? `${btn.label} (${btn.shortcut})` : btn.label}
+            >
+              <btn.icon className="size-3.5" />
+            </button>
+          ))}
+          <div className="mx-1 h-4 w-px bg-border" />
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="rounded p-1.5 text-muted-foreground/70 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            title="Upload image"
           >
-            <Edit3 className="size-3" />
-          </ModeButton>
-          <ModeButton
-            active={viewMode === "split"}
-            onClick={() => setViewMode("split")}
-            title="Split view"
-          >
-            <Columns2 className="size-3" />
-          </ModeButton>
-          <ModeButton
-            active={viewMode === "preview"}
-            onClick={() => setViewMode("preview")}
-            title="Preview"
-          >
-            <Eye className="size-3" />
-          </ModeButton>
+            {uploading ? <Upload className="size-3.5 animate-pulse" /> : <ImageIcon className="size-3.5" />}
+          </button>
+          <HelpMenu onInsert={insertAtCursor} />
         </div>
       </div>
 
-      {/* Content area */}
-      <div className={cn(
-        "flex min-h-0",
-        viewMode === "split" && "flex-row",
-      )}>
+      {/* Split content: editor left, preview right */}
+      <div className="flex min-h-0">
         {/* Editor pane */}
-        {viewMode !== "preview" && (
-          <div className={cn(
-            "relative flex-1 min-w-0",
-            viewMode === "split" && "border-r border-border",
-          )}>
-            {dragOver && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary/30 rounded-lg m-1 pointer-events-none">
-                <div className="flex flex-col items-center gap-1 text-primary/60">
-                  <ImageIcon className="size-6" />
-                  <span className="text-xs font-medium">Drop image here</span>
-                </div>
+        <div className="relative flex-1 min-w-0 border-r border-border">
+          {dragOver && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary/30 rounded-lg m-1 pointer-events-none">
+              <div className="flex flex-col items-center gap-1 text-primary/60">
+                <ImageIcon className="size-6" />
+                <span className="text-xs font-medium">Drop image here</span>
               </div>
-            )}
-            <textarea
-              ref={textareaRef}
-              id={id}
-              rows={viewMode === "split" ? Math.max(rows, 12) : rows}
-              placeholder={placeholder}
-              value={value}
-              onChange={(e) => onChange(e)}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              autoFocus={autoFocus}
-              className="w-full resize-none bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
-              spellCheck
-            />
-          </div>
-        )}
+            </div>
+          )}
+          <textarea
+            ref={textareaRef}
+            id={id}
+            rows={rows}
+            placeholder={placeholder}
+            value={value}
+            onChange={(e) => onChange(e)}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            autoFocus={autoFocus}
+            className="w-full resize-none bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+            spellCheck
+          />
+        </div>
 
         {/* Preview pane */}
-        {(viewMode === "split" || viewMode === "preview") && (
-          <div
-            ref={previewRef}
-            className={cn(
-              "flex-1 min-w-0 overflow-y-auto px-3 py-2 text-sm",
-              viewMode === "preview" && "max-h-none",
-            )}
-            style={viewMode === "split" ? { maxHeight: `${(Math.max(rows, 12) * 1.5 + 1) * 16 + 16}px` } : undefined}
-          >
-            {value.trim() ? (
-              <Markdown content={value} className="prose-sm" />
-            ) : (
-              <p className="text-sm text-muted-foreground/40 italic">Nothing to preview</p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Bottom bar */}
-      <div className="flex items-center justify-between border-t border-border bg-muted/20 px-3 py-1 text-[11px] text-muted-foreground/50">
-        <div className="flex items-center gap-3">
-          <span>{wordCount} {wordCount === 1 ? "word" : "words"}</span>
-          <span>{value.length} chars</span>
+        <div
+          ref={previewRef}
+          className="flex-1 min-w-0 overflow-y-auto px-3 py-2 text-sm"
+          style={{ maxHeight: `${textareaHeight}px` }}
+        >
+          {value.trim() ? (
+            <Markdown content={value} className="prose-sm" />
+          ) : (
+            <p className="text-sm text-muted-foreground/40 italic">Nothing to preview</p>
+          )}
         </div>
-        <span className="flex items-center gap-1">
-          <SplitSquareHorizontal className="size-3" />
-          Markdown supported
-        </span>
       </div>
 
       <input
@@ -327,35 +265,6 @@ export function MarkdownEditor({
         }}
       />
     </div>
-  )
-}
-
-function ModeButton({
-  active,
-  onClick,
-  title,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      tabIndex={-1}
-      onClick={onClick}
-      title={title}
-      className={cn(
-        "rounded px-1.5 py-1 focus:outline-none",
-        active
-          ? "bg-background text-foreground shadow-sm"
-          : "text-muted-foreground/60 hover:text-muted-foreground",
-      )}
-    >
-      {children}
-    </button>
   )
 }
 
