@@ -1,20 +1,10 @@
 import * as React from "react"
-import { Eye, Edit3, Image as ImageIcon, Upload, X, Bold, Italic, Strikethrough, Code, List, ListOrdered, Quote, Link, Hash } from "lucide-react"
+import { Eye, Edit3, Image as ImageIcon, Upload, X, Bold, Italic, Strikethrough, Code, List, ListOrdered, Quote, Link, Hash, Minus, HelpCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Markdown } from "./markdown"
 import { api } from "@/lib/api"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
-/**
- * Full interactive markdown editor with:
- * - A button toolbar: bold, italic, strikethrough, inline code, code block,
- *   ordered/unordered lists, blockquote, heading, image upload, separator
- * - Live preview toggle
- * - Drag-and-drop image upload
- * - Compact cheat-sheet
- *
- * The `value`/`onChange`/`placeholder`/`rows` props mirror the native
- * Textarea so this can drop in as a 1:1 replacement.
- */
 export function MarkdownEditor({
   id,
   value,
@@ -49,7 +39,7 @@ export function MarkdownEditor({
     }
   }, [previewImage])
 
-  function insertAtCursor(text: string) {
+  function insertAtCursor(text: string, cursorOffset?: number) {
     const el = textareaRef.current
     if (!el) {
       onChange({ target: { value: value + text } } as React.ChangeEvent<HTMLTextAreaElement>)
@@ -60,8 +50,9 @@ export function MarkdownEditor({
     const newVal = value.slice(0, start) + text + value.slice(end)
     onChange({ target: { value: newVal } } as React.ChangeEvent<HTMLTextAreaElement>)
     setTimeout(() => {
-      const pos = start + text.length
+      const pos = cursorOffset !== undefined ? start + cursorOffset : start + text.length
       el.setSelectionRange(pos, pos)
+      el.focus()
     }, 0)
   }
 
@@ -78,28 +69,36 @@ export function MarkdownEditor({
     insertAtCursor(`${before}${wrapText}${after}`)
   }
 
-  // Toolbar button helpers
   const bold = () => wrapSelection("**", "**", "bold")
   const italic = () => wrapSelection("*", "*", "italic")
   const strikethrough = () => wrapSelection("~~", "~~", "text")
   const inlineCode = () => wrapSelection("`", "`", "code")
   const codeBlock = () => {
-    const lang = prompt("Language (optional)", "typescript") ?? ""
-    insertAtCursor(`\`\`\`${lang}\n\n\`\`\``)
+    const el = textareaRef.current
+    const start = el?.selectionStart ?? 0
+    const end = el?.selectionEnd ?? 0
+    const selected = value.slice(start, end)
+    if (selected.includes("\n")) {
+      insertAtCursor(`\`\`\`\n${selected}\n\`\`\``)
+    } else {
+      insertAtCursor(`\`\`\`\ncode here\n\`\`\``, 4)
+    }
   }
-  const unorderedList = () => insertAtCursor("\n- List item\n- Another item\n")
-  const orderedList = () => insertAtCursor("\n1. First\n2. Second\n")
-  const blockquote = () => insertAtCursor("\n> Quote\n")
-  const heading = () => {
-    const level = prompt("Heading level (1-3)", "2") ?? "2"
-    const n = Math.max(1, Math.min(3, parseInt(level) || 2))
-    insertAtCursor(`\n${"#".repeat(n)} Heading\n`)
-  }
+  const unorderedList = () => insertAtCursor("\n- Item\n- Item\n", 3)
+  const orderedList = () => insertAtCursor("\n1. First\n2. Second\n", 4)
+  const blockquote = () => insertAtCursor("\n> Quote\n", 3)
+  const heading = (level: number) => insertAtCursor(`\n${"#".repeat(level)} Heading\n`, level + 3)
   const divider = () => insertAtCursor("\n---\n")
   const link = () => {
-    const href = prompt("URL", "https://") ?? ""
-    const label = prompt("Link text", "label") ?? "label"
-    insertAtCursor(`[${label}](${href})`)
+    const el = textareaRef.current
+    const start = el?.selectionStart ?? 0
+    const end = el?.selectionEnd ?? 0
+    const selected = value.slice(start, end)
+    if (selected) {
+      insertAtCursor(`[${selected}](url)`)
+    } else {
+      insertAtCursor("[text](url)", 1)
+    }
   }
 
   async function handleFileUpload(file: File) {
@@ -136,32 +135,50 @@ export function MarkdownEditor({
     e.stopPropagation()
   }
 
-  const toolbarButtons: { icon: React.ElementType; label: string; onClick: () => void }[] = [
-    { icon: Bold, label: "Bold", onClick: bold },
-    { icon: Italic, label: "Italic", onClick: italic },
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.metaKey || e.ctrlKey) {
+      switch (e.key.toLowerCase()) {
+        case "b": e.preventDefault(); bold(); return
+        case "i": e.preventDefault(); italic(); return
+        case "k": e.preventDefault(); link(); return
+        case "e": e.preventDefault(); inlineCode(); return
+      }
+    }
+    if (e.key === "Tab") {
+      e.preventDefault()
+      insertAtCursor("  ")
+      return
+    }
+    onKeyDown?.(e)
+  }
+
+  const toolbarButtons: { icon: React.ElementType; label: string; shortcut?: string; onClick: () => void }[] = [
+    { icon: Bold, label: "Bold", shortcut: "Ctrl+B", onClick: bold },
+    { icon: Italic, label: "Italic", shortcut: "Ctrl+I", onClick: italic },
     { icon: Strikethrough, label: "Strikethrough", onClick: strikethrough },
-    { icon: Code, label: "Inline code", onClick: inlineCode },
+    { icon: Code, label: "Inline code", shortcut: "Ctrl+E", onClick: inlineCode },
     { icon: List, label: "Bulleted list", onClick: unorderedList },
     { icon: ListOrdered, label: "Numbered list", onClick: orderedList },
     { icon: Quote, label: "Blockquote", onClick: blockquote },
-    { icon: Hash, label: "Heading", onClick: heading },
-    { icon: Link, label: "Link", onClick: link },
+    { icon: Hash, label: "Heading", onClick: () => heading(2) },
+    { icon: Link, label: "Link", shortcut: "Ctrl+K", onClick: link },
+    { icon: Minus, label: "Divider", onClick: divider },
     { icon: Code, label: "Code block", onClick: codeBlock },
   ]
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("space-y-1", className)}>
       {/* Toolbar */}
       {!preview && (
-        <div className="flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-muted/30 p-1 text-xs">
+        <div className="flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-muted/30 p-1">
           {toolbarButtons.map((btn) => (
             <button
               key={btn.label}
               type="button"
               tabIndex={-1}
               onClick={btn.onClick}
-              className="rounded p-1.5 text-muted-foreground/70 opacity-60 hover:text-foreground hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring"
-              title={btn.label}
+              className="rounded p-1.5 text-muted-foreground/70 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              title={btn.shortcut ? `${btn.label} (${btn.shortcut})` : btn.label}
             >
               <btn.icon className="size-3.5" />
             </button>
@@ -172,29 +189,23 @@ export function MarkdownEditor({
             tabIndex={-1}
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="rounded p-1.5 text-muted-foreground/70 opacity-60 hover:text-foreground hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring"
-            title="Insert image (drag & drop or click)"
+            className="rounded p-1.5 text-muted-foreground/70 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            title="Upload image"
           >
             {uploading ? <Upload className="size-3.5 animate-pulse" /> : <ImageIcon className="size-3.5" />}
           </button>
-          <button
-            type="button"
-            tabIndex={-1}
-            onClick={divider}
-            className="rounded p-1.5 text-muted-foreground/70 opacity-60 hover:text-foreground hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring"
-            title="Divider"
-          >
-            —
-          </button>
-          <button
-            type="button"
-            tabIndex={-1}
-            onClick={() => setPreview(true)}
-            className="ml-auto rounded p-1.5 text-muted-foreground/70 opacity-60 hover:text-foreground hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring"
-            title="Preview"
-          >
-            <Eye className="size-3.5" />
-          </button>
+          <div className="ml-auto flex items-center gap-0.5">
+            <HelpMenu onInsert={insertAtCursor} />
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => setPreview(true)}
+              className="rounded p-1.5 text-muted-foreground/70 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              title="Preview (Ctrl+Shift+P)"
+            >
+              <Eye className="size-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -211,7 +222,7 @@ export function MarkdownEditor({
           placeholder={placeholder}
           value={value}
           onChange={onChange}
-          onKeyDown={onKeyDown}
+          onKeyDown={handleKeyDown}
           autoFocus={autoFocus}
           className={cn(
             "min-h-[44px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 max-h-40",
@@ -232,24 +243,10 @@ export function MarkdownEditor({
               type="button"
               tabIndex={-1}
               onClick={() => setPreview(false)}
-              className="rounded-md p-1 text-xs text-muted-foreground/60 opacity-0 hover:text-muted-foreground hover:opacity-100 focus:opacity-100 focus:outline-none"
+              className="rounded-md p-1 text-xs text-muted-foreground/60 hover:text-muted-foreground focus:outline-none"
               title="Edit"
             >
               <Edit3 className="size-3.5" />
-            </button>
-          </div>
-        )}
-
-        {!preview && (
-          <div className="absolute top-2 right-2 flex items-center gap-1">
-            <button
-              type="button"
-              tabIndex={-1}
-              onClick={() => setPreview(true)}
-              className="rounded-md p-1 text-xs text-muted-foreground/60 opacity-0 hover:text-muted-foreground hover:opacity-100 focus:opacity-100 focus:outline-none"
-              title="Preview"
-            >
-              <Eye className="size-3.5" />
             </button>
           </div>
         )}
@@ -289,16 +286,15 @@ export function MarkdownEditor({
         </div>
       )}
 
-      {/* Cheat-sheet + preview toggle (only when not in preview mode) */}
+      {/* Word count + preview toggle */}
       {!preview && (
-        <div className="flex items-center justify-between text-xs text-muted-foreground/60">
-          <MarkdownCheatsheet />
+        <div className="flex items-center justify-end text-[11px] text-muted-foreground/50">
           <button
             type="button"
             onClick={() => setPreview(true)}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
+            className="inline-flex items-center gap-1 hover:text-muted-foreground"
           >
-            Preview mode
+            <Eye className="size-3" /> Preview
           </button>
         </div>
       )}
@@ -306,14 +302,58 @@ export function MarkdownEditor({
   )
 }
 
-/** Compact markdown cheat-sheet shown below the editor. */
-function MarkdownCheatsheet() {
+function HelpMenu({ onInsert }: { onInsert: (text: string, offset?: number) => void }) {
+  const [open, setOpen] = React.useState(false)
+
+  const shortcuts = [
+    { label: "Bold", syntax: "**text**", keys: "Ctrl+B", insert: "**bold**" },
+    { label: "Italic", syntax: "*text*", keys: "Ctrl+I", insert: "*italic*" },
+    { label: "Strikethrough", syntax: "~~text~~", insert: "~~text~~" },
+    { label: "Inline code", syntax: "`code`", keys: "Ctrl+E", insert: "`code`" },
+    { label: "Code block", syntax: "```lang\n```", insert: "```\ncode\n```" },
+    { label: "Link", syntax: "[text](url)", keys: "Ctrl+K", insert: "[text](url)" },
+    { label: "Image", syntax: "![alt](url)", insert: "![alt](url)" },
+    { label: "Heading", syntax: "## Heading", insert: "## " },
+    { label: "Bullet list", syntax: "- item", insert: "- " },
+    { label: "Numbered list", syntax: "1. item", insert: "1. " },
+    { label: "Blockquote", syntax: "> quote", insert: "> " },
+    { label: "Divider", syntax: "---", insert: "\n---\n" },
+  ]
+
   return (
-    <span>
-      <code className="rounded bg-muted/50 px-1 py-0.5">**bold**</code>, <code className="rounded bg-muted/50 px-1 py-0.5">`code`</code>,{" "}
-      <code className="rounded bg-muted/50 px-1 py-0.5">```</code>, <code className="rounded bg-muted/50 px-1 py-0.5">1.</code>,{" "}
-      <code className="rounded bg-muted/50 px-1 py-0.5">- list</code>,{" "}
-      <code className="rounded bg-muted/50 px-1 py-0.5">![alt](url)</code>
-    </span>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          tabIndex={-1}
+          className="rounded p-1.5 text-muted-foreground/70 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          title="Markdown help"
+        >
+          <HelpCircle className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="end" className="w-72 p-2">
+        <div className="text-xs font-medium text-muted-foreground mb-2">Markdown shortcuts</div>
+        <div className="grid gap-0.5">
+          {shortcuts.map((s) => (
+            <button
+              key={s.label}
+              type="button"
+              className="flex items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-muted"
+              onClick={() => {
+                onInsert(s.insert, s.insert.length)
+                setOpen(false)
+              }}
+            >
+              <span className="text-foreground">{s.label}</span>
+              <span className="flex items-center gap-2">
+                {s.keys && <kbd className="rounded bg-muted/80 px-1 py-0.5 text-[10px] text-muted-foreground">{s.keys}</kbd>}
+                <code className="text-muted-foreground/60">{s.syntax}</code>
+              </span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
