@@ -35,7 +35,6 @@ storage.get("/data", async (c) => {
   const token = c.get("voidAuthAccessToken")
   const q = c.req.query()
   const params = new URLSearchParams()
-  if (q.client_id) params.set("client_id", q.client_id)
   if (q.key) params.set("key", q.key)
   const url = `${voidauthPath(c.req.path)}${params.toString() ? `?${params}` : ""}`
   try {
@@ -50,6 +49,7 @@ storage.post("/data", async (c) => {
   const token = c.get("voidAuthAccessToken")
   try {
     const body = await c.req.json()
+    delete body.client_id
     const res = await fetch(voidauthPath(c.req.path), {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authHeaders(token) },
@@ -65,7 +65,6 @@ storage.delete("/data", async (c) => {
   const token = c.get("voidAuthAccessToken")
   const q = c.req.query()
   const params = new URLSearchParams()
-  if (q.client_id) params.set("client_id", q.client_id)
   if (q.key) params.set("key", q.key)
   const url = `${voidauthPath(c.req.path)}${params.toString() ? `?${params}` : ""}`
   try {
@@ -81,7 +80,6 @@ storage.get("/files", async (c) => {
   const token = c.get("voidAuthAccessToken")
   const q = c.req.query()
   const params = new URLSearchParams()
-  if (q.client_id) params.set("client_id", q.client_id)
   if (q.page) params.set("page", q.page)
   if (q.limit) params.set("limit", q.limit)
   const url = `${voidauthPath(c.req.path)}${params.toString() ? `?${params}` : ""}`
@@ -97,6 +95,7 @@ storage.post("/files", async (c) => {
   const token = c.get("voidAuthAccessToken")
   try {
     const form = await c.req.formData()
+    form.delete("client_id")
     const res = await fetch(voidauthPath(c.req.path), {
       method: "POST",
       headers: authHeaders(token),

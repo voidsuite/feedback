@@ -9,12 +9,14 @@ import { TypeBadge, StatusBadge, PriorityBadge } from "@/components/feedback/bad
 import { VoteButton } from "@/components/feedback/vote-button"
 import { Markdown } from "@/components/feedback/markdown"
 import { MarkdownEditor } from "@/components/feedback/markdown-editor"
-import { api, type ThreadDetail } from "@/lib/api"
+import { api, type ThreadDetail, type ThreadType, type ThreadPriority } from "@/lib/api"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { TYPE_LABEL, PRIORITY_LABEL } from "@/lib/types"
 import { useAuth } from "@/contexts/auth"
 
 export function ThreadPage() {
   const { id } = useParams<{ id: string }>()
-  const { isAdmin } = useAuth()
+  const { isAdmin, user } = useAuth()
   const navigate = useNavigate()
   const [thread, setThread] = React.useState<ThreadDetail | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -69,6 +71,7 @@ export function ThreadPage() {
               <h1 className="text-xl font-semibold tracking-tight">{thread.title}</h1>
               <p className="mt-1 text-xs text-muted-foreground">
                 by {thread.author.name}
+                {thread.author.role === "admin" && <span className="ml-1 rounded bg-primary/10 px-1 py-0.5 text-[9px] font-medium text-primary">admin</span>}
                 {thread.sourceApp ? ` · from ${thread.sourceApp}` : ""} ·{" "}
                 {new Date(thread.createdAt).toLocaleString()}
               </p>
@@ -99,7 +102,7 @@ export function ThreadPage() {
             ) : (
               <Card className="p-4">
                 {thread.bodyMarkdown ? <Markdown content={thread.bodyMarkdown} /> : <p className="text-sm text-muted-foreground/50">No details provided.</p>}
-                {isAdmin && (
+                {(isAdmin || thread.author.id === user?.id) && (
                   <Button
                     variant="ghost" size="sm" className="mt-2 gap-1.5"
                     onClick={() => { setDraftBody(thread.bodyMarkdown); setEditingBody(true) }}
@@ -123,8 +126,37 @@ export function ThreadPage() {
               </div>
             </Card>
             <Card className="space-y-3 p-4 text-sm">
+              {(isAdmin || thread.author.id === user?.id) ? (
+                <Row label="Type">
+                  <Select value={thread.type} onValueChange={(v) => api.updateThread(thread.id, { type: v as ThreadType }).then(({ thread: t }) => setThread(t))}>
+                    <SelectTrigger className="h-auto w-auto border-0 bg-transparent p-0 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="question">{TYPE_LABEL.question}</SelectItem>
+                      <SelectItem value="feature">{TYPE_LABEL.feature}</SelectItem>
+                      <SelectItem value="bug">{TYPE_LABEL.bug}</SelectItem>
+                      <SelectItem value="support">{TYPE_LABEL.support}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Row>
+              ) : (
+                <Row label="Type"><TypeBadge type={thread.type} /></Row>
+              )}
               <Row label="Status"><StatusBadge status={thread.status} /></Row>
-              <Row label="Priority"><PriorityBadge priority={thread.priority} /></Row>
+              {(isAdmin || thread.author.id === user?.id) ? (
+                <Row label="Priority">
+                  <Select value={thread.priority} onValueChange={(v) => api.updateThread(thread.id, { priority: v as ThreadPriority }).then(({ thread: t }) => setThread(t))}>
+                    <SelectTrigger className="h-auto w-auto border-0 bg-transparent p-0 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">{PRIORITY_LABEL.low}</SelectItem>
+                      <SelectItem value="medium">{PRIORITY_LABEL.medium}</SelectItem>
+                      <SelectItem value="high">{PRIORITY_LABEL.high}</SelectItem>
+                      <SelectItem value="urgent">{PRIORITY_LABEL.urgent}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Row>
+              ) : (
+                <Row label="Priority"><PriorityBadge priority={thread.priority} /></Row>
+              )}
               <Row label="Assignee">{thread.assignee ? thread.assignee.name : <span className="text-muted-foreground">Unassigned</span>}</Row>
               <Row label="Source">{thread.sourceApp || <span className="text-muted-foreground">Direct</span>}</Row>
               <Row label="Visibility">{thread.isPublic ? <span className="text-violet-600 dark:text-violet-400">Public</span> : <span className="text-muted-foreground">Private</span>}</Row>

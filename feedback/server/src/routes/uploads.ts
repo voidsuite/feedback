@@ -97,6 +97,7 @@ uploadApi.post("/", async (c) => {
 uploadStatic.get("/:id", async (c) => {
   const filename = c.req.param("id")
   if (!/^[\w.-]+$/.test(filename)) return c.json({ error: "Invalid filename" }, 400)
+  if (filename.includes('..')) return c.json({ error: "Invalid filename" }, 400)
   const filePath = path.join(UPLOAD_DIR, filename)
   const f = Bun.file(filePath)
   if (!(await f.exists())) return c.json({ error: "Not found" }, 404)

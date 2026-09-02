@@ -21,16 +21,20 @@ export async function scanQRFromVideo(
   videoElement: HTMLVideoElement,
   jsQR: { default: (data: Uint8ClampedArray, width: number, height: number) => { data: string } | null }
 ): Promise<string | null> {
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return null
+  try {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
 
-  canvas.width = videoElement.videoWidth
-  canvas.height = videoElement.videoHeight
-  ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height)
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  const code = jsQR.default(imageData.data, canvas.width, canvas.height)
-  return code?.data || null
+    canvas.width = videoElement.videoWidth
+    canvas.height = videoElement.videoHeight
+    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height)
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const code = jsQR.default(imageData.data, canvas.width, canvas.height)
+    return code?.data || null
+  } catch {
+    return null
+  }
 }
 
 export function parseAndValidateOTPAuthURI(uri: string): string {

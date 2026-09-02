@@ -1,7 +1,15 @@
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "react-router"
 import { Button } from "@/components/ui/button"
 import { VoidLogo } from "@/components/VoidLogo"
+
+function safeDecode(value: string, fallback: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return fallback
+  }
+}
 
 export function OAuthCallbackPage() {
   const [params] = useSearchParams()
@@ -12,22 +20,47 @@ export function OAuthCallbackPage() {
   const redirectUri = params.get("redirect_uri")
   const state = params.get("state")
 
+  const [stateError, setStateError] = useState<string | null>(null)
+
   const isSuccess = !error && !!code
 
-  const returnUrl = useMemo(() => {
-    if (!isSuccess || !redirectUri || !code) return null
+  const decodedAppName = safeDecode(appName, "the application")
 
-    const decodedRedirectUri = decodeURIComponent(redirectUri)
+  const decodedRedirectUri = useMemo(() => {
+    if (!redirectUri) return null
+    return safeDecode(redirectUri, "")
+  }, [redirectUri])
+
+  const isSafeRedirect = useMemo(() => {
+    if (!decodedRedirectUri) return false
+    try {
+      const url = new URL(decodedRedirectUri)
+      return url.protocol === "http:" || url.protocol === "https:"
+    } catch {
+      return false
+    }
+  }, [decodedRedirectUri])
+
+  useEffect(() => {
+    if (!state) return
+    const stored = sessionStorage.getItem("oauth_state")
+    if (!stored || stored !== state) {
+      setStateError("Invalid or missing state parameter. This may indicate a CSRF attack.")
+    }
+  }, [state])
+
+  const returnUrl = useMemo(() => {
+    if (!isSuccess || !decodedRedirectUri || !code || !isSafeRedirect) return null
+
     const qs = new URLSearchParams({ code })
     if (state) qs.set("state", state)
 
     return `${decodedRedirectUri}?${qs.toString()}`
-  }, [isSuccess, redirectUri, code, state])
+  }, [isSuccess, decodedRedirectUri, code, state, isSafeRedirect])
 
   useEffect(() => {
     if (!returnUrl) return
 
-    // Auto-return to the integrating app (standard OAuth UX).
     const t = window.setTimeout(() => {
       window.location.assign(returnUrl)
     }, 1500)
@@ -37,14 +70,33 @@ export function OAuthCallbackPage() {
   return (
     <div className="flex min-h-svh items-center justify-center p-6">
       <div className="w-full max-w-sm space-y-6">
-        {/* Logo */}
         <div className="flex justify-center">
           <VoidLogo />
         </div>
 
-        {/* Status */}
         <div className="flex flex-col items-center gap-4 text-center">
-          {isSuccess ? (
+          {stateError ? (
+            <>
+              <div className="flex size-12 items-center justify-center rounded-full border border-border bg-card">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="size-5 text-muted-foreground"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </div>
+              <div className="space-y-1">
+                <h1 className="text-xl font-semibold">Verification failed</h1>
+                <p className="text-sm text-muted-foreground">{stateError}</p>
+              </div>
+            </>
+          ) : isSuccess ? (
             <>
               <div className="flex size-12 items-center justify-center rounded-full border border-border bg-card">
                 <svg
@@ -62,7 +114,7 @@ export function OAuthCallbackPage() {
               <div className="space-y-1">
                 <h1 className="text-xl font-semibold">Authorization successful</h1>
                 <p className="text-sm text-muted-foreground">
-                  Redirecting you back to {decodeURIComponent(appName)}...
+                  Redirecting you back to {decodedAppName}...
                 </p>
               </div>
             </>
@@ -85,21 +137,20 @@ export function OAuthCallbackPage() {
               <div className="space-y-1">
                 <h1 className="text-xl font-semibold">Authorization cancelled</h1>
                 <p className="text-sm text-muted-foreground">
-                  You declined access for {decodeURIComponent(appName)}.
+                  You declined access for {decodedAppName}.
                 </p>
               </div>
             </>
           )}
         </div>
 
-        {/* Actions */}
         <div className="flex flex-col gap-2">
-          {isSuccess && redirectUri && (
+          {isSuccess && redirectUri && isSafeRedirect && !stateError && (
             <Button className="w-full" asChild>
               <a
-                href={returnUrl ?? `${decodeURIComponent(redirectUri)}?code=${code}`}
+                href={returnUrl ?? "#"}
               >
-                Return to {decodeURIComponent(appName)}
+                Return to {decodedAppName}
               </a>
             </Button>
           )}

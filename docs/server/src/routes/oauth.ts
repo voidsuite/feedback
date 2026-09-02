@@ -18,8 +18,15 @@ import {
 } from "../lib/oauth.js"
 import { logger } from "../lib/log.js"
 
-const PKCE_VERIFIERS = new Map<string, string>()
+const PKCE_VERIFIERS = new Map<string, { verifier: string; createdAt: number }>()
 const PKCE_STATE_COOKIE = "vdocs_pkce_state"
+
+setInterval(() => {
+  const cutoff = Date.now() - 10 * 60 * 1000
+  for (const [state, entry] of PKCE_VERIFIERS) {
+    if (entry.createdAt < cutoff) PKCE_VERIFIERS.delete(state)
+  }
+}, 60_000).unref?.()
 
 function pkceStateCookieOptions(): Record<string, string | boolean | number> {
   return {
@@ -36,7 +43,7 @@ const auth = new Hono()
 // GET /api/auth/login → { authUrl } (starts PKCE, binds state to this browser)
 auth.get("/login", async (c) => {
   const { params, verifier, state } = buildAuthorizeParams()
-  PKCE_VERIFIERS.set(state, verifier)
+  PKCE_VERIFIERS.set(state, { verifier, createdAt: Date.now() })
   setCookie(c, PKCE_STATE_COOKIE, state, pkceStateCookieOptions())
   return c.json({ authUrl: authorizeUrl(params) })
 })
@@ -55,13 +62,13 @@ auth.post("/exchange", async (c) => {
   if (!stateCookie || stateCookie !== state) {
     return c.json({ error: "Invalid OAuth state" }, 400)
   }
-  const verifier = PKCE_VERIFIERS.get(state)
-  if (!verifier) return c.json({ error: "Invalid or expired state" }, 400)
+  const entry = PKCE_VERIFIERS.get(state)
+  if (!entry) return c.json({ error: "Invalid or expired state" }, 400)
   PKCE_VERIFIERS.delete(state)
   deleteCookie(c, PKCE_STATE_COOKIE)
 
   try {
-    const tokens = await exchangeCode(code, verifier)
+    const tokens = await exchangeCode(code, entry.verifier)
     const user = tokens.user || (await getUserInfo(tokens.accessToken))
 
     const kmli = keepMeLoggedIn !== false

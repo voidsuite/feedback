@@ -363,7 +363,7 @@ admin.get('/apps', async (c) => {
 admin.get('/apps/:id', async (c) => {
   const id = c.req.param('id');
   const app = await queryOne<any>(
-    `SELECT oc.id, oc.client_id, oc.client_secret, oc.name, oc.description, oc.redirect_uris,
+    `SELECT oc.id, oc.client_id, oc.name, oc.description, oc.redirect_uris,
             oc.allowed_scopes, oc.verification_status, oc.is_active, oc.owner_id, oc.created_at, oc.updated_at,
             u.name as owner_name, u.email as owner_email,
             (SELECT COUNT(*) FROM oauth_tokens WHERE client_id = oc.id) as token_count,

@@ -1,5 +1,5 @@
 import { Link } from "react-router"
-import { MessageSquare, CheckCircle2 } from "lucide-react"
+import { MessageSquare, CheckCircle2, ChevronUp } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { TypeBadge, StatusBadge } from "./badges"
 import type { ThreadSummary } from "@/lib/types"
@@ -36,11 +36,12 @@ export function ThreadCard({ thread, showVotes = true }: { thread: ThreadSummary
           <AvatarFallback className="text-[9px]">{thread.author.name.slice(0, 2).toUpperCase()}</AvatarFallback>
         </Avatar>
         <span className="truncate">{thread.author.name}</span>
+        {thread.author.role === "admin" && <span className="rounded bg-primary/10 px-1 py-0.5 text-[9px] font-medium text-primary">admin</span>}
         {thread.sourceApp && <span className="text-muted-foreground/70">· {thread.sourceApp}</span>}
         <span className="ml-auto flex items-center gap-3">
           {showVotes && thread.voteCount > 0 && (
             <span className={cn("inline-flex items-center gap-1", thread.hasVoted && "text-primary")}>
-              <MessageSquare className="size-3" />
+              <ChevronUp className="size-3" />
               {thread.voteCount}
             </span>
           )}

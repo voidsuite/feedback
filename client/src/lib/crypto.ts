@@ -34,7 +34,7 @@ export async function encrypt(data: string, passphrase: string): Promise<string>
   combined.set(salt, 0)
   combined.set(iv, salt.length)
   combined.set(new Uint8Array(ciphertext), salt.length + iv.length)
-  return btoa(String.fromCharCode(...combined))
+  return btoa(Array.from(combined, b => String.fromCharCode(b)).join(''))
 }
 
 export async function decrypt(encrypted: string, passphrase: string): Promise<string> {
@@ -106,7 +106,7 @@ export async function encryptWithDeviceKey(data: string): Promise<string> {
   const combined = new Uint8Array(iv.length + new Uint8Array(ciphertext).length)
   combined.set(iv, 0)
   combined.set(new Uint8Array(ciphertext), iv.length)
-  return btoa(String.fromCharCode(...combined))
+  return btoa(Array.from(combined, b => String.fromCharCode(b)).join(''))
 }
 
 export async function decryptWithDeviceKey(encrypted: string): Promise<string | null> {
@@ -133,7 +133,7 @@ export async function hashPassphrase(passphrase: string, salt: Uint8Array): Prom
     baseKey,
     256
   )
-  return btoa(String.fromCharCode(...new Uint8Array(bits)))
+  return btoa(Array.from(new Uint8Array(bits), b => String.fromCharCode(b)).join(''))
 }
 
 export async function verifyPassphrase(passphrase: string, salt: Uint8Array, hash: string): Promise<boolean> {

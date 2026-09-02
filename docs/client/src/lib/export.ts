@@ -22,6 +22,7 @@ import {
   TextRun,
   WidthType,
 } from "docx"
+import DOMPurify from "dompurify"
 import type { Editor } from "@tiptap/react"
 import type { Node as PMNode, Mark as PMMark } from "@tiptap/pm/model"
 import type { IRunOptions } from "docx"
@@ -289,7 +290,7 @@ export async function exportAsDocx(editor: Editor, meta: DocMeta): Promise<void>
 }
 
 export function exportAsHtml(editor: Editor): string {
-  const body = editor.getHTML()
+  const body = DOMPurify.sanitize(editor.getHTML())
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -327,7 +328,7 @@ export function exportAsText(editor: Editor): string {
 
 /** Print the rendered document (user picks "Save as PDF" in the dialog). */
 export function exportAsPdf(editor: Editor, meta: DocMeta): void {
-  const body = editor.getHTML()
+  const body = DOMPurify.sanitize(editor.getHTML())
   const widthMm = meta.page.size === "a4" ? 210 : 215.9
   const heightMm = meta.page.size === "a4" ? 297 : 279.4
   const orient = meta.page.orientation === "landscape" ? "landscape" : "portrait"

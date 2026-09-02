@@ -13,6 +13,7 @@ import {
   deleteThread,
   getThreadMeta,
   getThreadAuthorEmail,
+  addSystemMessage,
   type ThreadType,
   type ThreadPriority,
   type ThreadStatus,
@@ -41,8 +42,8 @@ threads.get("/", async (c) => {
     publicOnly: q.publicOnly === "1",
     q: q.q,
     sort: (q.sort as "recent" | "top" | "active") || "recent",
-    limit: q.limit ? parseInt(q.limit, 10) : 50,
-    offset: q.offset ? parseInt(q.offset, 10) : 0,
+    limit: q.limit ? (parseInt(q.limit, 10) || 50) : 50,
+    offset: q.offset ? (parseInt(q.offset, 10) || 0) : 0,
   }
   const { threads: list, total } = listThreads(filters, user ? { id: user.id, isAdmin: isAdmin(user) } : undefined)
   return c.json({ threads: list, total })
@@ -64,7 +65,7 @@ threads.post("/", async (c) => {
   if (!title && type === "support") title = `Support · ${user.name}`
   if (!title) return c.json({ error: "Title is required" }, 400)
 
-  const bodyMarkdown = typeof body.body === "string" ? body.body : ""
+  const bodyMarkdown = typeof body.bodyMarkdown === "string" ? body.bodyMarkdown : typeof body.body === "string" ? body.body : ""
   const sourceApp = typeof body.sourceApp === "string" && body.sourceApp ? body.sourceApp.slice(0, 64) : null
 
   const thread = createThread({ type, sourceApp, author: user, title, bodyMarkdown, priority })
@@ -102,9 +103,10 @@ threads.patch("/:id", async (c) => {
   const patch: Parameters<typeof updateThread>[1] = {}
   if (typeof body.title === "string" && body.title.trim()) patch.title = body.title.trim().slice(0, 200)
   if (typeof body.bodyMarkdown === "string") patch.bodyMarkdown = body.bodyMarkdown
+  if (typeof body.type === "string" && VALID_TYPES.includes(body.type)) patch.type = body.type
+  if (typeof body.priority === "string" && VALID_PRIORITIES.includes(body.priority)) patch.priority = body.priority
   if (admin) {
     if (body.status && VALID_STATUSES.includes(body.status)) patch.status = body.status
-    if (body.priority && VALID_PRIORITIES.includes(body.priority)) patch.priority = body.priority
     if ("assigneeId" in body) patch.assigneeId = body.assigneeId ? String(body.assigneeId) : null
     if (typeof body.isPublic === "boolean") patch.isPublic = body.isPublic
   }
@@ -112,19 +114,33 @@ threads.patch("/:id", async (c) => {
   const updated = updateThread(id, patch)
   if (!updated) return c.json({ error: "Update failed" }, 400)
 
-  // Notifications for status / assignment changes.
+  // Notifications for status / assignment / priority changes.
   const meta = getThreadMeta(id)!
   const ctx = {
-    thread: { id: meta.id, type: meta.type, title: meta.title, source_app: meta.source_app, status: meta.status, author_name: meta.author_name },
+    thread: { id: meta.id, type: meta.type, title: meta.title, source_app: meta.source_app, status: meta.status, priority: updated?.priority, author_name: meta.author_name },
     actor: { name: user.name },
     author_email: getThreadAuthorEmail(id) ?? undefined,
   }
   if (patch.status && patch.status !== existing.status) {
+    const STATUS_LABEL: Record<string, string> = { open: "Open", in_review: "In review", planned: "Planned", in_progress: "In progress", answered: "Answered", shipped: "Shipped", closed: "Closed" }
+    addSystemMessage(id, `Status changed from **${STATUS_LABEL[existing.status] || existing.status}** to **${STATUS_LABEL[patch.status] || patch.status}** by ${user.name}`)
     await notify("status_change", ctx)
     await notifyAuthor("status_change", ctx)
   }
   if (patch.assigneeId !== undefined && patch.assigneeId !== (existing.assignee?.id ?? null)) {
+    const assigneeName = patch.assigneeId ? user.name : "nobody"
+    addSystemMessage(id, patch.assigneeId ? `Assigned to **${user.name}**` : `Unassigned by ${user.name}`)
     await notify("assigned", ctx)
+  }
+  if (patch.priority && patch.priority !== existing.priority) {
+    const PRIORITY_LABEL: Record<string, string> = { low: "Low", medium: "Medium", high: "High", urgent: "Urgent" }
+    addSystemMessage(id, `Priority changed from **${PRIORITY_LABEL[existing.priority] || existing.priority}** to **${PRIORITY_LABEL[patch.priority] || patch.priority}** by ${user.name}`)
+    await notify("priority_change", ctx)
+    await notifyAuthor("priority_change", ctx)
+  }
+  if (patch.type && patch.type !== existing.type) {
+    const TYPE_LABEL: Record<string, string> = { question: "Question", feature: "Feature request", bug: "Bug report", support: "Support" }
+    addSystemMessage(id, `Type changed from **${TYPE_LABEL[existing.type] || existing.type}** to **${TYPE_LABEL[patch.type] || patch.type}** by ${user.name}`)
   }
 
   broadcastToThread(id, { type: "thread_update", thread: updated })

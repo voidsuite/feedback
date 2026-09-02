@@ -226,7 +226,7 @@ export function buildLoginAlertEmail(userName: string, ip: string, time: string)
       <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)">
         <tr><td style="padding:32px 32px 0">
           <h1 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.3px">New sign-in to your account</h1>
-          <p style="margin:12px 0 0;font-size:14px;color:#666;line-height:1.5">Hi ${userName},</p>
+          <p style="margin:12px 0 0;font-size:14px;color:#666;line-height:1.5">Hi ${escapeHtml(userName)},</p>
           <p style="margin:8px 0 0;font-size:14px;color:#666;line-height:1.5">A new sign-in was detected on your VoidAuth account.</p>
         </td></tr>
         <tr><td style="padding:20px 32px">
@@ -258,7 +258,7 @@ export function buildFailedLoginAlertEmail(userName: string, ip: string, attempt
       <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)">
         <tr><td style="padding:32px 32px 0">
           <h1 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.3px">Failed sign-in attempt</h1>
-          <p style="margin:12px 0 0;font-size:14px;color:#666;line-height:1.5">Hi ${userName},</p>
+          <p style="margin:12px 0 0;font-size:14px;color:#666;line-height:1.5">Hi ${escapeHtml(userName)},</p>
           <p style="margin:8px 0 0;font-size:14px;color:#666;line-height:1.5">There ${attempts > 1 ? 'have been' : 'has been'} ${attempts} failed sign-in attempt${attempts > 1 ? 's' : ''} on your VoidAuth account.</p>
         </td></tr>
         <tr><td style="padding:20px 32px">
@@ -289,7 +289,7 @@ export function buildPasswordChangedEmail(userName: string): string {
       <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)">
         <tr><td style="padding:32px 32px 0">
           <h1 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.3px">Password changed</h1>
-          <p style="margin:12px 0 0;font-size:14px;color:#666;line-height:1.5">Hi ${userName},</p>
+          <p style="margin:12px 0 0;font-size:14px;color:#666;line-height:1.5">Hi ${escapeHtml(userName)},</p>
           <p style="margin:8px 0 0;font-size:14px;color:#666;line-height:1.5">Your VoidAuth account password was successfully changed.</p>
         </td></tr>
         <tr><td style="padding:0 32px 24px">
@@ -315,8 +315,8 @@ export function buildNewAppConnectionEmail(userName: string, appName: string): s
       <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)">
         <tr><td style="padding:32px 32px 0">
           <h1 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.3px">New app connected</h1>
-          <p style="margin:12px 0 0;font-size:14px;color:#666;line-height:1.5">Hi ${userName},</p>
-          <p style="margin:8px 0 0;font-size:14px;color:#666;line-height:1.5">A new application has been connected to your VoidAuth account: <strong>${appName}</strong>.</p>
+          <p style="margin:12px 0 0;font-size:14px;color:#666;line-height:1.5">Hi ${escapeHtml(userName)},</p>
+          <p style="margin:8px 0 0;font-size:14px;color:#666;line-height:1.5">A new application has been connected to your VoidAuth account: <strong>${escapeHtml(appName)}</strong>.</p>
         </td></tr>
         <tr><td style="padding:0 32px 24px">
           <p style="margin:20px 0 0;font-size:12px;color:#999;line-height:1.5">If this was you, no action is needed. You can manage connected apps from your dashboard. If you don't recognize this app, revoke its access immediately.</p>

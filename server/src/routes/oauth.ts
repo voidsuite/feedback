@@ -667,8 +667,11 @@ oauth.post('/token', async (c) => {
       }
     }
 
-    // Mark code as used
-    await query('UPDATE oauth_codes SET used_at = NOW() WHERE id = ?', [authCode.id]);
+    // Mark code as used atomically
+    const markResult = await query<any>('UPDATE oauth_codes SET used_at = NOW() WHERE id = ? AND used_at IS NULL', [authCode.id]);
+    if (!markResult || (markResult as any).affectedRows !== 1) {
+      return c.json({ error: 'Authorization code already used' }, 400);
+    }
 
     // Generate access token
     const accessToken = generateSecureToken(64);

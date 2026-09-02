@@ -37,6 +37,8 @@ export function AdminUserDetail() {
   const [showFiles, setShowFiles] = useState(false)
   const [files, setFiles] = useState<any[]>([])
   const [banning, setBanning] = useState(false)
+  const [loadingUser, setLoadingUser] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -45,20 +47,29 @@ export function AdminUserDetail() {
 
   async function loadUser() {
     if (!id) return
-    const res = await getAdminUser(id)
-    if (res) {
-      setUserData(res)
-      setForm({
-        name: res.user.name,
-        email: res.user.email,
-        role: res.user.role,
-        avatar_url: res.user.avatar_url || "",
-        is_active: !!res.user.is_active,
-      })
+    setLoadingUser(true)
+    setLoadError(null)
+    try {
+      const res = await getAdminUser(id)
+      if (res) {
+        setUserData(res)
+        setForm({
+          name: res.user.name,
+          email: res.user.email,
+          role: res.user.role,
+          avatar_url: res.user.avatar_url || "",
+          is_active: !!res.user.is_active,
+        })
+      } else {
+        setLoadError("User not found")
+      }
+    } catch {
+      setLoadError("Failed to load user")
     }
+    setLoadingUser(false)
   }
 
-  if (!userData) {
+  if (loadingUser) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-5 w-24" />
@@ -93,6 +104,29 @@ export function AdminUserDetail() {
       </div>
     )
   }
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/admin/users")} className="text-muted-foreground">
+          ← Back to users
+        </Button>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="flex size-12 items-center justify-center rounded-full border border-border bg-card mb-4">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5 text-muted-foreground">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold mb-1">{loadError}</h2>
+          <p className="text-sm text-muted-foreground">The user could not be loaded. They may have been deleted.</p>
+          <Button size="sm" onClick={loadUser} className="mt-4">Try again</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!userData) return null
 
   const { user, stats } = userData
 

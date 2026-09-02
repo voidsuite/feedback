@@ -100,7 +100,8 @@ export function getSession(id: string): SessionData | null {
 export function updateSessionTokens(id: string, accessToken: string, refreshToken: string, extend = true): void {
   const session = getSession(id)
   if (!session) return
-  const expiresAt = extend ? now() + SESSION_DURATION_KMLI : session.expiresAt
+  const duration = session.keepMeLoggedIn ? SESSION_DURATION_KMLI : SESSION_DURATION_DEFAULT
+  const expiresAt = extend ? now() + duration : session.expiresAt
   updateTokens.run(accessToken, refreshToken, expiresAt, id)
 }
 

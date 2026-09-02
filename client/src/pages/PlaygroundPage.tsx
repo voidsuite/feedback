@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router'
 import { getDeveloperApps, updateDeveloperApp, type DeveloperApp } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
@@ -66,7 +66,27 @@ export function PlaygroundPage() {
   const [saving, setSaving] = useState(false)
   const [aiTab, setAiTab] = useState<'opencode' | 'codex' | 'claude' | 'cursor' | 'windsurf'>('opencode')
 
-  useEffect(() => { loadApps() }, [])
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const result = await getDeveloperApps()
+        if (cancelled) return
+        setApps(result || [])
+        if (result?.length > 0) {
+          const savedId = localStorage.getItem('va_playground_app')
+          const app = result.find((a: DeveloperApp) => a.id === savedId) || result[0]
+          setSelectedApp(app)
+          if (app.appTheme) {
+            setTheme({ ...DEFAULT_THEME, ...app.appTheme })
+          }
+        }
+      } catch {}
+      if (!cancelled) setLoading(false)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     if (selectedApp) {
@@ -74,23 +94,10 @@ export function PlaygroundPage() {
     }
   }, [selectedApp])
 
-  const loadApps = async () => {
-    try {
-      const result = await getDeveloperApps()
-      setApps(result || [])
-      if (result?.length > 0) {
-        const savedId = localStorage.getItem('va_playground_app')
-        const app = result.find((a: DeveloperApp) => a.id === savedId) || result[0]
-        setSelectedApp(app)
-        if (app.appTheme) {
-          setTheme({ ...DEFAULT_THEME, ...app.appTheme })
-        }
-      }
-    } catch {}
-    setLoading(false)
-  }
+  const updateTheme = (patch: Partial<ThemeConfig>) => setTheme((prev) => ({ ...prev, ...patch }))
 
-  const updateTheme = (patch: Partial<ThemeConfig>) => setTheme({ ...theme, ...patch })
+  const copyCodeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const saveTheme = useCallback(async () => {
     if (!selectedApp) return
@@ -100,7 +107,8 @@ export function PlaygroundPage() {
     if (result.success) {
       setSaved(true)
       setApps((prev) => prev.map((a) => a.id === selectedApp.id ? { ...a, appTheme: theme } : a))
-      setTimeout(() => setSaved(false), 2000)
+      if (savedTimeout.current) clearTimeout(savedTimeout.current)
+      savedTimeout.current = setTimeout(() => setSaved(false), 2000)
     }
   }, [theme, selectedApp])
 
@@ -247,11 +255,12 @@ curl ${issuer}/.well-known/openid-configuration
 # 5. Get JWKS
 curl ${issuer}/oauth/jwks`
 
-  const copyCode = (code: string) => {
+  const copyCode = useCallback((code: string) => {
     navigator.clipboard.writeText(code)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+    if (copyCodeTimeout.current) clearTimeout(copyCodeTimeout.current)
+    copyCodeTimeout.current = setTimeout(() => setCopied(false), 2000)
+  }, [])
 
   return (
     <div className="min-h-svh bg-background">

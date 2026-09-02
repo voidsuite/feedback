@@ -60,10 +60,11 @@ async function createSessionAndSetCookie(
   }
 
   const sessionId = randomUUID();
+  const effectiveDeviceId = deviceId || randomUUID();
   await query(
     `INSERT INTO sessions (id, user_id, refresh_token, expires_at, ip_address, user_agent, device_id, device_name, session_token)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [sessionId, userId, refreshToken, expiresAt, ip, ua, deviceId || null, deviceName || null, sessionToken]
+     [sessionId, userId, refreshToken, expiresAt, ip, ua, effectiveDeviceId, deviceName || null, sessionToken]
   );
 
   await insertRefreshTokenFamily(userId, refreshToken, expiresAt, sessionTtlSeconds);
@@ -255,7 +256,7 @@ auth.post('/check-email', rateLimit({ windowMs: 60_000, max: 10 }), async (c) =>
     );
 
     if (!user || !user.is_active) {
-      return c.json({ exists: false });
+      return c.json({ exists: false, hasTwoFactor: false, hasPasskey: false, emailConfigured: false });
     }
 
     const passkeyCount = await queryOne<any>(
@@ -1132,13 +1133,11 @@ auth.post('/magic-link/send', rateLimit({ windowMs: 60_000, max: 3 }), async (c)
     );
     if (!user) return c.json({ error: 'Invalid magic link' }, 400);
 
-    const magic = await queryOne<any>(
-      'SELECT id FROM magic_links WHERE user_id = ? AND token = ? AND expires_at > NOW() AND used_at IS NULL',
+    const markResult = await query<any>(
+      'UPDATE magic_links SET used_at = NOW() WHERE user_id = ? AND token = ? AND expires_at > NOW() AND used_at IS NULL',
       [user.id, token]
     );
-    if (!magic) return c.json({ error: 'Invalid or expired magic link' }, 400);
-
-    await query('UPDATE magic_links SET used_at = NOW() WHERE id = ?', [magic.id]);
+    if (!markResult || (markResult as any).affectedRows !== 1) return c.json({ error: 'Invalid or expired magic link' }, 400);
     await query('UPDATE users SET last_login_at = NOW() WHERE id = ?', [user.id]);
 
     const ip = getClientIP(c);
@@ -1176,7 +1175,7 @@ auth.post('/otp/send', rateLimit({ windowMs: 60_000, max: 3 }), async (c) => {
     const { isEmailConfigured, sendEmail, buildOTPEmail } = await import('../utils/email.js');
     if (!isEmailConfigured()) return c.json({ error: 'Email service is not configured. Contact the administrator.' }, 500);
 
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = String(crypto.randomInt(100000, 999999));
     const hash = await hashPassword(code);
     const expiresAt = new Date(Date.now() + 5 * 60_000);
 
@@ -1218,16 +1217,16 @@ auth.post('/otp/send', rateLimit({ windowMs: 60_000, max: 3 }), async (c) => {
       [user.id]
     );
 
-    let valid = false;
     let matchedId: string | null = null;
     for (const r of rows || []) {
-      valid = await verifyPassword(code, r.token);
+      const valid = await verifyPassword(code, r.token);
       if (valid) { matchedId = r.id; break; }
     }
 
     if (!matchedId) return c.json({ error: 'Invalid or expired code' }, 400);
 
-    await query('UPDATE magic_links SET used_at = NOW() WHERE id = ?', [matchedId]);
+    const markResult = await query<any>('UPDATE magic_links SET used_at = NOW() WHERE id = ? AND used_at IS NULL', [matchedId]);
+    if (!markResult || (markResult as any).affectedRows !== 1) return c.json({ error: 'Invalid or expired code' }, 400);
     await query('UPDATE users SET last_login_at = NOW() WHERE id = ?', [user.id]);
 
     const ip = getClientIP(c);
@@ -1478,7 +1477,7 @@ auth.post('/recovery-contacts', authMiddleware, async (c) => {
       [id, userId, contact_type, contact_value, codeHash, expires]
     );
 
-    return c.json({ id, code });
+    return c.json({ id });
   } catch (err) {
     return c.json({ error: 'Invalid request' }, 400);
   }
@@ -1516,7 +1515,9 @@ auth.post('/recovery-contacts/:id/verify', authMiddleware, async (c) => {
     }
 
     const codeHash = crypto.createHash('sha256').update(code).digest('hex');
-    if (codeHash !== contact.verification_token) {
+    const codeBuf = Buffer.from(codeHash, 'hex');
+    const tokenBuf = Buffer.from(contact.verification_token, 'hex');
+    if (codeBuf.length !== tokenBuf.length || !timingSafeEqual(codeBuf, tokenBuf)) {
       return c.json({ error: 'Invalid verification code' }, 400);
     }
 

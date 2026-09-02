@@ -14,7 +14,7 @@
 import type { ServerWebSocket } from "bun"
 import { getCookieName, getSession } from "../db/sessions.js"
 import { validateBearerToken } from "../lib/oauth.js"
-import { boardWorkspace } from "../lib/dto.js"
+import { boardWorkspace, workspaceRole } from "../lib/dto.js"
 import { addToRooms, removeFromRooms, onlineMembers, broadcastToBoard, broadcastToWorkspace, type ConnMeta } from "../lib/events.js"
 
 export const wsHandlers = {
@@ -108,8 +108,7 @@ export async function handleWsUpgrade(req: Request, server: import("bun").Server
   }
   if (workspaceId) {
     if (!/^[\w-]{1,64}$/.test(workspaceId)) return new Response("Invalid room id", { status: 400 })
-    // workspaceId param is informational; membership is enforced by boardWorkspace
-    // for boards, and presence-only for the workspace page.
+    if (!workspaceRole(workspaceId, user.id)) return new Response("Forbidden", { status: 403 })
   }
 
   const ok = server.upgrade(req, {

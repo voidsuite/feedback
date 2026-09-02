@@ -1,4 +1,4 @@
-import { HelpCircle, Lightbulb, Bug, MessagesSquare, CircleDot } from "lucide-react"
+import { HelpCircle, Lightbulb, Bug, MessagesSquare, CircleDot, CheckCircle2 } from "lucide-react"
 import type { ThreadType, ThreadStatus, ThreadPriority } from "@/lib/types"
 import { STATUS_LABEL, PRIORITY_LABEL } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -39,9 +39,10 @@ export function TypeBadge({ type, className }: { type: ThreadType; className?: s
 }
 
 export function StatusBadge({ status, className }: { status: ThreadStatus; className?: string }) {
+  const isResolved = status === "answered" || status === "shipped" || status === "closed"
   return (
     <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium", STATUS_STYLE[status], className)}>
-      <CircleDot className="mr-1 size-2.5" />
+      {isResolved ? <CheckCircle2 className="mr-1 size-2.5" /> : <CircleDot className="mr-1 size-2.5" />}
       {STATUS_LABEL[status]}
     </span>
   )

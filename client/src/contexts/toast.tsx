@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react"
+import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 interface Toast {
@@ -27,11 +27,25 @@ const icons: Record<Toast["type"], string> = {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
+  const timeoutRefs = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
+  useEffect(() => {
+    return () => {
+      for (const t of timeoutRefs.current.values()) {
+        clearTimeout(t)
+      }
+      timeoutRefs.current.clear()
+    }
+  }, [])
 
   const addToast = useCallback((message: string, type: Toast["type"] = "info") => {
     const id = Math.random().toString(36).slice(2)
     setToasts((prev) => [...prev, { id, message, type }])
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000)
+    const t = setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id))
+      timeoutRefs.current.delete(id)
+    }, 4000)
+    timeoutRefs.current.set(id, t)
   }, [])
 
   const remove = (id: string) => setToasts((prev) => prev.filter((t) => t.id !== id))

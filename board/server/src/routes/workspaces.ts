@@ -75,6 +75,7 @@ routes.patch("/workspaces/:id", (c) => c.req.json().then(async (body) => {
   const id = c.req.param("id")
   const role = workspaceRole(id, user.id)
   if (!role) return c.json({ error: "Not a member" }, 403)
+  if (!["owner", "admin"].includes(role)) return c.json({ error: "Admins only" }, 403)
 
   const patch: string[] = []
   const values: (string | number | null)[] = []
@@ -88,7 +89,8 @@ routes.patch("/workspaces/:id", (c) => c.req.json().then(async (body) => {
     patch.push("avatar_file_id = ?")
     values.push(body.avatarFileId)
   } else if (body?.avatarFileId === null) {
-    patch.push("avatar_file_id = NULL")
+    patch.push("avatar_file_id = ?")
+    values.push(null)
   }
   if (!patch.length) return c.json(serializeWorkspace(id))
   values.push(now(), id)
@@ -191,7 +193,9 @@ routes.patch("/projects/:id", (c) => c.req.json().then(async (body) => {
   const id = c.req.param("id")
   const proj = serializeProject(id)
   if (!proj) return c.json({ error: "Not found" }, 404)
-  if (!workspaceRole(proj.workspaceId, user.id)) return c.json({ error: "Not a member" }, 403)
+  const role = workspaceRole(proj.workspaceId, user.id)
+  if (!role) return c.json({ error: "Not a member" }, 403)
+  if (!["owner", "admin"].includes(role)) return c.json({ error: "Admins only" }, 403)
 
   const patch: string[] = []
   const values: (string | number)[] = []
@@ -265,7 +269,8 @@ routes.patch("/boards/:id", (c) => c.req.json().then(async (body) => {
     patch.push("avatar_file_id = ?")
     values.push(body.avatarFileId)
   } else if (body?.avatarFileId === null) {
-    patch.push("avatar_file_id = NULL")
+    patch.push("avatar_file_id = ?")
+    values.push(null)
   }
   if (!patch.length) return c.json(serializeBoard(id))
   values.push(now(), id)

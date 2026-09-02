@@ -43,6 +43,12 @@ export function MarkdownEditor({
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
+  React.useEffect(() => {
+    return () => {
+      if (previewImage) URL.revokeObjectURL(previewImage)
+    }
+  }, [previewImage])
+
   function insertAtCursor(text: string) {
     const el = textareaRef.current
     if (!el) {
@@ -208,7 +214,7 @@ export function MarkdownEditor({
           onKeyDown={onKeyDown}
           autoFocus={autoFocus}
           className={cn(
-            "min-h-[44px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+            "min-h-[44px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 max-h-40",
             preview && "hidden"
           )}
           spellCheck

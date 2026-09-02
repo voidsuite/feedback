@@ -153,19 +153,20 @@ routes.patch("/items/:id", async (c) => {
     const col = db.query("SELECT id FROM columns WHERE id = ? AND board_id = ?").get(targetColumnId, row.boardId)
     if (!col) return c.json({ error: "Column not found" }, 400)
 
-    // Remove self from target list then insert at the requested index.
-    const targetItems = (db.query("SELECT id FROM items WHERE column_id = ? ORDER BY position ASC").all(targetColumnId) as { id: string }[])
-      .map((r) => r.id)
-      .filter((i) => i !== id)
-    let index = Number.isInteger(body.position) ? (body.position as number) : targetItems.length
-    index = Math.max(0, Math.min(index, targetItems.length))
-    targetItems.splice(index, 0, id)
-
+    let finalIndex = 0
     db.transaction(() => {
+      const targetItems = (db.query("SELECT id FROM items WHERE column_id = ? ORDER BY position ASC").all(targetColumnId) as { id: string }[])
+        .map((r) => r.id)
+        .filter((i) => i !== id)
+      let index = Number.isInteger(body.position) ? (body.position as number) : targetItems.length
+      index = Math.max(0, Math.min(index, targetItems.length))
+      targetItems.splice(index, 0, id)
+      finalIndex = index
+
       const stmt = db.query("UPDATE items SET column_id = ?, position = ?, updated_by = ?, updated_at = ? WHERE id = ?")
       targetItems.forEach((itemId, i) => stmt.run(targetColumnId, i, user.id, now(), itemId))
     })()
-    logActivity(id, user.id, "moved", { toColumn: targetColumnId, toIndex: index })
+    logActivity(id, user.id, "moved", { toColumn: targetColumnId, toIndex: finalIndex })
   } else {
     const patch: string[] = []
     const values: (string | number | null)[] = []

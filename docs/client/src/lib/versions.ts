@@ -15,7 +15,7 @@ const AUTO_DEBOUNCE = 45 * 1000 // wait for 45s of quiet before writing an auto 
 export async function encodeSnapshot(doc: Y.Doc, docKey: CryptoKey): Promise<string> {
   const state = Y.encodeStateAsUpdate(doc)
   const enc = await encryptBytesWithKey(state, docKey)
-  return btoa(String.fromCharCode(...enc))
+  return btoa(Array.from(enc, b => String.fromCharCode(b)).join(""))
 }
 
 export async function decodeSnapshot(snapshotB64: string, docKey: CryptoKey): Promise<Y.Doc> {

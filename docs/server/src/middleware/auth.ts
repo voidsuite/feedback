@@ -49,7 +49,7 @@ const hits = new Map<string, { count: number; resetAt: number }>()
 
 export async function rateLimit(c: Context, next: Next): Promise<Response | void> {
   const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || c.req.header("cf-connecting-ip") || "local"
-  const key = `${ip}:${c.req.path}`
+  const key = `${ip}:${c.req.method}:${c.req.path}`
   const now = Date.now()
   const entry = hits.get(key)
 

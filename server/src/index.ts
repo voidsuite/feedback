@@ -132,8 +132,9 @@ const MIME_TYPES: Record<string, string> = {
 const UPLOADS_ROOT = resolve(process.cwd(), 'uploads');
 app.get('/uploads/*', async (c) => {
   const relativePath = c.req.path.replace('/uploads/', '').replace(/^\//, '');
-  const filePath = resolve(UPLOADS_ROOT, relativePath);
-  if (!filePath.startsWith(UPLOADS_ROOT)) {
+  const normalized = relativePath.split('/').filter(p => p !== '..' && p !== '.').join('/');
+  const filePath = resolve(UPLOADS_ROOT, normalized);
+  if (!filePath.startsWith(UPLOADS_ROOT) || filePath.includes('..')) {
     return c.json({ error: 'Invalid path' }, 400);
   }
   try {

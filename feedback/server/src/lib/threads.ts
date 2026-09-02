@@ -18,6 +18,7 @@ export interface ThreadAuthor {
   id: string
   name: string
   picture: string | null
+  role?: string
 }
 
 export interface MessageDto {
@@ -66,6 +67,7 @@ interface ThreadRow {
   author_id: string
   author_name: string
   author_picture: string | null
+  author_role: string | null
   assignee_id: string | null
   assignee_name: string | null
   assignee_picture: string | null
@@ -86,7 +88,7 @@ function baseSelect(viewerId?: string): string {
   return `
     SELECT t.id, t.type, t.source_app, t.title, t.body_markdown, t.status, t.priority, t.is_public,
            t.author_id, t.created_at, t.updated_at,
-           u.name AS author_name, u.picture AS author_picture,
+           u.name AS author_name, u.picture AS author_picture, u.role AS author_role,
            a.id AS assignee_id, a.name AS assignee_name, a.picture AS assignee_picture,
            (SELECT COUNT(*) FROM feedback_messages m WHERE m.thread_id = t.id) AS messageCount,
            (SELECT COUNT(*) FROM feedback_votes v WHERE v.thread_id = t.id) AS voteCount,
@@ -107,7 +109,7 @@ function rowToSummary(row: ThreadRow): ThreadSummary {
     status: row.status as ThreadStatus,
     priority: row.priority as ThreadPriority,
     isPublic: row.is_public === 1,
-    author: { id: row.author_id, name: row.author_name, picture: row.author_picture },
+    author: { id: row.author_id, name: row.author_name, picture: row.author_picture, role: row.author_role ?? undefined },
     assignee: row.assignee_id ? { id: row.assignee_id, name: row.assignee_name!, picture: row.assignee_picture } : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -202,18 +204,18 @@ export function createThread(input: {
     `INSERT INTO feedback_threads (id, type, source_app, author_id, title, body_markdown, status, priority, is_public, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, 'open', ?, 0, ?, ?)`
   ).run(id, input.type, input.sourceApp ?? null, input.author.id, input.title, input.bodyMarkdown, input.priority, ts, ts)
-  addMessage({ threadId: id, author: input.author, authorRole: "user", bodyMarkdown: input.bodyMarkdown, isInternal: false })
   return getThread(id, { id: input.author.id, isAdmin: false })!
 }
 
 export function updateThread(
   id: string,
-  patch: Partial<{ title: string; bodyMarkdown: string; status: ThreadStatus; priority: ThreadPriority; assigneeId: string | null; isPublic: boolean }>
+  patch: Partial<{ title: string; bodyMarkdown: string; type: ThreadType; status: ThreadStatus; priority: ThreadPriority; assigneeId: string | null; isPublic: boolean }>
 ): ThreadDetail | null {
   const sets: string[] = []
   const params: any[] = []
   if (patch.title !== undefined) { sets.push("title = ?"); params.push(patch.title) }
   if (patch.bodyMarkdown !== undefined) { sets.push("body_markdown = ?"); params.push(patch.bodyMarkdown) }
+  if (patch.type !== undefined) { sets.push("type = ?"); params.push(patch.type) }
   if (patch.status !== undefined) { sets.push("status = ?"); params.push(patch.status) }
   if (patch.priority !== undefined) { sets.push("priority = ?"); params.push(patch.priority) }
   if (patch.assigneeId !== undefined) { sets.push("assignee_id = ?"); params.push(patch.assigneeId) }
@@ -290,11 +292,24 @@ export function getMessage(id: string): MessageDto | null {
   }
 }
 
+export function deleteMessage(messageId: string, threadId: string): boolean {
+  const result = db.query("DELETE FROM feedback_messages WHERE id = ? AND thread_id = ?").run(messageId, threadId)
+  if (result.changes > 0) {
+    db.query("UPDATE feedback_threads SET updated_at = ? WHERE id = ?").run(now(), threadId)
+    return true
+  }
+  return false
+}
+
+export function addSystemMessage(threadId: string, bodyMarkdown: string): MessageDto {
+  const systemUser = { id: "system", name: "System", picture: null } as SessionUser
+  return addMessage({ threadId, author: systemUser, authorRole: "system", bodyMarkdown, isInternal: false })
+}
+
 export function vote(threadId: string, userId: string): { voted: boolean; votes: number } {
-  const existing = db.query("SELECT 1 FROM feedback_votes WHERE thread_id = ? AND user_id = ?").get(threadId, userId)
-  if (!existing) db.query("INSERT INTO feedback_votes (thread_id, user_id, created_at) VALUES (?, ?, ?)").run(threadId, userId, now())
+  const result = db.query("INSERT OR IGNORE INTO feedback_votes (thread_id, user_id, created_at) VALUES (?, ?, ?)").run(threadId, userId, now())
   const votes = (db.query("SELECT COUNT(*) AS n FROM feedback_votes WHERE thread_id = ?").get(threadId) as { n: number }).n
-  return { voted: !existing, votes }
+  return { voted: result.changes > 0, votes }
 }
 
 export function unvote(threadId: string, userId: string): { voted: boolean; votes: number } {

@@ -149,7 +149,7 @@ export function createThread(input: { type: ThreadType; sourceApp?: string | nul
   return gateway("/api/threads", { method: "POST", body: JSON.stringify(input) })
 }
 
-export function updateThread(id: string, patch: Partial<{ title: string; bodyMarkdown: string; status: ThreadStatus; priority: ThreadPriority; assigneeId: string | null; isPublic: boolean }>): Promise<{ thread: ThreadDetail }> {
+export function updateThread(id: string, patch: Partial<{ title: string; bodyMarkdown: string; type: ThreadType; status: ThreadStatus; priority: ThreadPriority; assigneeId: string | null; isPublic: boolean }>): Promise<{ thread: ThreadDetail }> {
   return gateway(`/api/threads/${id}`, { method: "PATCH", body: JSON.stringify(patch) })
 }
 
@@ -165,6 +165,10 @@ export function listMessages(threadId: string): Promise<{ messages: Message[] }>
 
 export function sendMessage(threadId: string, body: string, isInternal = false): Promise<{ message: Message }> {
   return gateway(`/api/threads/${threadId}/messages`, { method: "POST", body: JSON.stringify({ body, isInternal }) })
+}
+
+export function deleteMessage(threadId: string, messageId: string): Promise<{ ok: boolean }> {
+  return gateway(`/api/threads/${threadId}/messages/${messageId}`, { method: "DELETE" })
 }
 
 // --- Votes ---
@@ -272,6 +276,7 @@ export const api = {
   deleteThread,
   listMessages,
   sendMessage,
+  deleteMessage,
   voteThread,
   unvoteThread,
   getStats,

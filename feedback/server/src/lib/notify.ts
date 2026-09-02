@@ -10,7 +10,7 @@ import { db, now } from "../db/connection.js"
 import { newId } from "./ids.js"
 import { sendEmail, emailConfigured } from "./email.js"
 
-export type NotifyEvent = "new_feedback" | "new_reply" | "status_change" | "assigned"
+export type NotifyEvent = "new_feedback" | "new_reply" | "status_change" | "assigned" | "priority_change"
 
 export interface NotifyThread {
   id: string
@@ -18,6 +18,7 @@ export interface NotifyThread {
   title: string
   source_app: string | null
   status: string
+  priority?: string
   author_name: string
 }
 
@@ -51,6 +52,7 @@ const EVENT_TITLE: Record<NotifyEvent, string> = {
   new_reply: "New reply",
   status_change: "Status changed",
   assigned: "Assigned",
+  priority_change: "Priority changed",
 }
 
 interface TargetRow {
@@ -65,9 +67,9 @@ function threadUrl(id: string): string {
   return `${config.publicUrl}/thread/${id}`
 }
 
-function plainBody(ctx: NotifyContext): string {
+function plainBody(ctx: NotifyContext, event: NotifyEvent): string {
   const t = ctx.thread
-  const head = `${EVENT_TITLE[Object.keys(EVENT_TITLE)[0] as NotifyEvent] ?? ""}`
+  const head = `${EVENT_TITLE[event] ?? ""}`
   const lines = [
     `${TYPE_LABEL[t.type] ?? t.type} · ${t.title}`,
     `From: ${t.author_name}${t.source_app ? ` (via ${t.source_app})` : ""}`,
@@ -133,7 +135,7 @@ function buildWebhookPayload(ctx: NotifyContext, event: NotifyEvent): Record<str
 function buildEmail(ctx: NotifyContext, event: NotifyEvent): { subject: string; html: string; text: string } {
   const t = ctx.thread
   const subject = `${EVENT_TITLE[event]}: ${t.title}`
-  const text = plainBody(ctx)
+  const text = plainBody(ctx, event)
   const html = `
   <div style="font-family:ui-sans-serif,system-ui,sans-serif;max-width:520px;margin:0 auto;">
     <h2 style="font-size:16px;margin:0 0 8px;">${EVENT_TITLE[event]}: ${escapeHtml(t.title)}</h2>

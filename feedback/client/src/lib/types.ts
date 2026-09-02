@@ -13,6 +13,7 @@ export interface ThreadAuthor {
   id: string
   name: string
   picture: string | null
+  role?: string
 }
 
 export interface Message {
@@ -60,7 +61,7 @@ export interface SourceStat {
 }
 
 export type NotifyTargetType = "discord" | "slack" | "telegram" | "email" | "webhook"
-export type NotifyEvent = "new_feedback" | "new_reply" | "status_change" | "assigned"
+export type NotifyEvent = "new_feedback" | "new_reply" | "status_change" | "assigned" | "priority_change"
 
 export interface NotifyTarget {
   id: string
