@@ -1,4 +1,3 @@
-import { type NavigateFunction } from "react-router"
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -6,12 +5,22 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function safeRedirect(navigate: NavigateFunction, redirect: string) {
-  // Only allow same-origin relative paths. Rejects absolute URLs (open
-  // redirect) and protocol-relative URLs like //evil.example.
-  if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
-    navigate(redirect)
-  } else {
-    navigate('/dashboard')
+/**
+ * Haptic / force feedback. Falls back to a CSS "pulse" via the returned
+ * event when the device has no vibrate API. Safe to call anywhere.
+ */
+export function haptic(pattern: number | number[] = 10) {
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+    try {
+      navigator.vibrate(pattern)
+    } catch {
+      /* noop */
+    }
   }
 }
+
+/** Spring-like scale for pressable elements (used with active:). */
+export const pressable = "transition-transform active:scale-[0.97]"
+
+/** Shared subtle entry animation for newly rendered panels/items. */
+export const enterAnim = "animate-in fade-in duration-200"

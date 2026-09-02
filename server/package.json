@@ -1,34 +1,23 @@
 {
-  "name": "voidauth-server",
-  "version": "0.0.1",
+  "name": "voidfeedback-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Void Feedback gateway — VoidAuth session validation, REST API, SQLite store, realtime WebSocket push for the support & feedback hub",
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts",
-    "db:migrate": "bun src/db/migrate.ts",
-    "db:seed": "bun src/db/seed.ts",
-    "test": "vitest run",
+    "dev": "bun --env-file=../.env --watch src/index.ts",
+    "start": "bun --env-file=../.env src/index.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.11",
-    "@simplewebauthn/server": "^13.3.0",
-    "authenticator": "^1.1.5",
-    "bcrypt": "^6.0.0",
-    "hono": "^4.7.9",
-    "ioredis": "^6.0.0",
-    "jose": "^5.10.0",
-    "mysql2": "3.9.7",
-    "nodemailer": "^9.0.3",
-    "otplib": "^13.4.0",
-    "qrcode": "^1.5.4",
+    "hono": "^4.9.0",
+    "nodemailer": "^6.10.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
-    "@types/nodemailer": "^8.0.1",
-    "@types/qrcode": "^1.5.6",
-    "bun-types": "latest",
-    "vitest": "^4.1.10"
-  }
+    "@types/bun": "latest",
+    "@types/nodemailer": "^6.4.17",
+    "typescript": "~5.9.3"
+  },
+  "license": "MIT"
 }

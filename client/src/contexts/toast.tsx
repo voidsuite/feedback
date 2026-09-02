@@ -1,79 +1,119 @@
-import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from "react"
+import * as React from "react"
+import { AlertCircle, CheckCircle2, Info, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-interface Toast {
-  id: string
-  message: string
-  type: "success" | "error" | "info"
+export type ToastVariant = "default" | "success" | "destructive"
+
+export interface ToastInput {
+  title: string
+  description?: string
+  variant?: ToastVariant
+  /** Optional inline action (e.g. Undo). Extends the toast duration. */
+  action?: { label: string; onClick: () => void }
+  /** Keep the toast up longer (used with actions). */
+  duration?: number
 }
 
-interface ToastContextType {
-  addToast: (message: string, type?: Toast["type"]) => void
+interface ToastItem extends ToastInput {
+  id: number
 }
 
-const ToastContext = createContext<ToastContextType | null>(null)
-
-export function useToast() {
-  const ctx = useContext(ToastContext)
-  if (!ctx) throw new Error("useToast must be used within ToastProvider")
-  return ctx
+interface ToastContextValue {
+  toast: (input: ToastInput) => void
 }
 
-const icons: Record<Toast["type"], string> = {
-  success: "M20 6L9 17l-5-5",
-  error: "M18 6L6 18M6 6l12 12",
-  info: "M12 16v-4M12 8h.01",
+const ToastContext = React.createContext<ToastContextValue | undefined>(undefined)
+
+const ICONS: Record<ToastVariant, React.ComponentType<{ className?: string }>> = {
+  default: Info,
+  success: CheckCircle2,
+  destructive: AlertCircle,
 }
 
-export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([])
-  const timeoutRefs = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const [toasts, setToasts] = React.useState<ToastItem[]>([])
+  const counter = React.useRef(0)
+  const timers = React.useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
 
-  useEffect(() => {
-    return () => {
-      for (const t of timeoutRefs.current.values()) {
-        clearTimeout(t)
-      }
-      timeoutRefs.current.clear()
+  const dismiss = React.useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id))
+    const timer = timers.current.get(id)
+    if (timer) {
+      clearTimeout(timer)
+      timers.current.delete(id)
     }
   }, [])
 
-  const addToast = useCallback((message: string, type: Toast["type"] = "info") => {
-    const id = Math.random().toString(36).slice(2)
-    setToasts((prev) => [...prev, { id, message, type }])
-    const t = setTimeout(() => {
-      setToasts((prev) => prev.filter((toast) => toast.id !== id))
-      timeoutRefs.current.delete(id)
-    }, 4000)
-    timeoutRefs.current.set(id, t)
-  }, [])
+  const toast = React.useCallback(
+    (input: ToastInput) => {
+      const id = ++counter.current
+      setToasts((prev) => [...prev.slice(-3), { ...input, id }])
+      const duration = input.duration ?? (input.action ? 7000 : 4500)
+      const timer = setTimeout(() => dismiss(id), duration)
+      timers.current.set(id, timer)
+    },
+    [dismiss]
+  )
 
-  const remove = (id: string) => setToasts((prev) => prev.filter((t) => t.id !== id))
+  const value = React.useMemo(() => ({ toast }), [toast])
 
   return (
-    <ToastContext.Provider value={{ addToast }}>
+    <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            className={cn(
-              "flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm shadow-lg animate-in slide-in-from-right-4 fade-in duration-200",
-              t.type === "success" && "border-green-500/30 bg-green-500/10 text-green-600",
-              t.type === "error" && "border-destructive/30 bg-destructive/10 text-destructive",
-              t.type === "info" && "border-border bg-card text-foreground",
-            )}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 size-4 shrink-0">
-              <path d={icons[t.type]} />
-            </svg>
-            <p className="flex-1 text-xs">{t.message}</p>
-            <button onClick={() => remove(t.id)} className="text-current opacity-50 hover:opacity-100 transition-opacity">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="size-3"><path d="M18 6L6 18M6 6l12 12" /></svg>
-            </button>
-          </div>
-        ))}
+      <div className="pointer-events-none fixed inset-x-0 top-4 z-[100] flex flex-col items-center gap-2 px-4 sm:items-end sm:pr-6">
+        {toasts.map((t) => {
+          const Icon = ICONS[t.variant || "default"]
+          return (
+            <div
+              key={t.id}
+              role="status"
+              className={cn(
+                "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border border-border bg-popover p-4 shadow-lg",
+                "animate-in slide-in-from-top-2 fade-in"
+              )}
+            >
+              <Icon
+                className={cn(
+                  "mt-0.5 size-4 flex-shrink-0",
+                  t.variant === "success" && "text-emerald-600 dark:text-emerald-400",
+                  t.variant === "destructive" && "text-destructive",
+                  (!t.variant || t.variant === "default") && "text-foreground/70"
+                )}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium leading-tight text-foreground">{t.title}</p>
+                {t.description ? (
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{t.description}</p>
+                ) : null}
+                {t.action ? (
+                  <button
+                    onClick={() => {
+                      t.action?.onClick()
+                      dismiss(t.id)
+                    }}
+                    className="mt-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium text-primary underline-offset-2 transition-colors hover:bg-accent hover:underline"
+                  >
+                    {t.action.label}
+                  </button>
+                ) : null}
+              </div>
+              <button
+                onClick={() => dismiss(t.id)}
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                aria-label="Dismiss"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          )
+        })}
       </div>
     </ToastContext.Provider>
   )
+}
+
+export function useToast(): ToastContextValue {
+  const context = React.useContext(ToastContext)
+  if (!context) throw new Error("useToast must be used within a ToastProvider")
+  return context
 }

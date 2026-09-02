@@ -1,115 +1,114 @@
-/* eslint-disable react-refresh/only-export-components */
+/**
+ * Auth context for Void Feedback.
+ *
+ * Login is always "Sign in with VoidAuth" — the app is server-authoritative,
+ * everything syncs with your account, and there is no local-only mode.
+ */
+
 import * as React from "react"
-import {
-  type User,
-  getCurrentUser,
-  login as authLogin,
-  logout as authLogout,
-  register as authRegister,
-  verifyAuth,
-} from "@/lib/auth"
+import * as api from "@/lib/api"
+import type { User } from "@/lib/api"
 
+// NOTE: AuthProvider is rendered outside the router (providers wrap RouterProvider
+// in main.tsx), so it must not call useNavigate at the top level. Navigation after
+// sign-out is performed by the calling component.
 
-interface AuthContextType {
+type AuthStatus = "loading" | "ready"
+
+interface AuthContextValue {
+  status: AuthStatus
   user: User | null
-  loading: boolean
-  maintenanceMode: boolean
-  login: (email: string, password: string, keepMeLoggedIn?: boolean) => Promise<{ error?: string } | { mfaRequired: true; mfaToken: string }>
-  logout: () => Promise<void>
-  register: (
-    name: string,
-    email: string,
-    password: string,
-  ) => Promise<{ error?: string }>
-  refreshUser: () => void
   isAdmin: boolean
+  signIn: (keepMeLoggedIn?: boolean) => Promise<void>
+  signOut: () => Promise<void>
+  completeCallback: () => Promise<User>
+  refresh: () => Promise<void>
 }
 
-const AuthContext = React.createContext<AuthContextType | undefined>(undefined)
+const AuthContext = React.createContext<AuthContextValue | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = React.useState<User | null>(() => getCurrentUser())
-  const [loading, setLoading] = React.useState(true)
-  const [maintenanceMode, setMaintenanceMode] = React.useState(false)
+  const [status, setStatus] = React.useState<AuthStatus>("loading")
+  const [user, setUser] = React.useState<User | null>(null)
 
-  // Verify authentication on mount
   React.useEffect(() => {
-    const checkAuth = async () => {
-      const currentUser = getCurrentUser()
-      if (currentUser) {
-        // Session cookie is sent automatically — just verify with the server
-        const verifiedUser = await verifyAuth()
-        setUser(verifiedUser)
-      }
-      try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/health`)
-        const health = await res.json()
-        setMaintenanceMode(!!health.maintenance)
-      } catch {}
-      setLoading(false)
+    if (window.location.pathname.startsWith("/oauth/callback")) {
+      setStatus("ready")
+      return
     }
-    checkAuth()
+    let cancelled = false
+    api
+      .getMe()
+      .then((u) => {
+        if (cancelled) return
+        if (u) setUser(u)
+      })
+      .finally(() => {
+        if (!cancelled) setStatus("ready")
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const refreshUser = React.useCallback(() => {
-    setUser(getCurrentUser())
+  // Silent session keep-alive: re-check on focus / visibility + every 5 min.
+  React.useEffect(() => {
+    if (!user) return
+    let interval: ReturnType<typeof setInterval>
+    const check = () => {
+      api.getMe().then((u) => setUser(u)).catch(() => {})
+    }
+    const onVisible = () => {
+      if (document.visibilityState === "visible") check()
+    }
+    window.addEventListener("focus", check)
+    document.addEventListener("visibilitychange", onVisible)
+    interval = setInterval(check, 5 * 60 * 1000)
+    return () => {
+      window.removeEventListener("focus", check)
+      document.removeEventListener("visibilitychange", onVisible)
+      clearInterval(interval)
+    }
+  }, [user])
+
+  const signIn = React.useCallback(async (keepMeLoggedIn = true) => {
+    await api.startLogin(keepMeLoggedIn)
   }, [])
 
-  const login = React.useCallback(
-    async (email: string, password: string, keepMeLoggedIn?: boolean): Promise<any> => {
-      const result = await authLogin(email, password, keepMeLoggedIn)
-      // If server requires MFA step, return the MFA response to the caller so the UI can handle it
-      if ('mfaRequired' in result && result.mfaRequired) return result
-      if ("error" in result) return { error: result.error }
-      // The login response already contains full user data — no need to call
-      // verifyAuth() here. Doing so hit GET /auth/me which could return 401 if
-      // the session cookie wasn't fully propagated yet, triggering the apiClient's
-      // hard-redirect 401 handler and bouncing the user back to /login.
-      setUser(result.user)
-      // Yield to let React flush the state update before any navigation
-      await new Promise(resolve => setTimeout(resolve, 0))
-      // Re-check maintenance mode after login (the health endpoint is now available)
-      try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/health`)
-        const health = await res.json()
-        if (health.maintenance) setMaintenanceMode(true)
-      } catch {}
-      return {}
-    },
-    [],
-  )
-
-  const logout = React.useCallback(async () => {
-    await authLogout()
+  const signOut = React.useCallback(async () => {
+    await api.logout()
     setUser(null)
   }, [])
 
-  const register = React.useCallback(
-    async (
-      name: string,
-      email: string,
-      password: string,
-    ): Promise<{ error?: string }> => {
-      const result = await authRegister(name, email, password)
-      if ("error" in result) return { error: result.error }
-      setUser(result.user)
-      return {}
-    },
-    [],
-  )
+  const completeCallback = React.useCallback(async () => {
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get("code")
+    const state = params.get("state")
+    const keep = sessionStorage.getItem("voidfeedback_keep_me_logged_in") !== "0"
+    sessionStorage.removeItem("voidfeedback_keep_me_logged_in")
+    if (!code || !state) throw new Error("Missing authorization code")
+    const u = await api.handleCallback(code, state, keep)
+    setUser(u)
+    return u
+  }, [])
 
-  const isAdmin = user?.role === 'admin'
+  const refresh = React.useCallback(async () => {
+    const u = await api.getMe()
+    setUser(u)
+  }, [])
+
+  const isAdmin = user?.role === "admin"
 
   const value = React.useMemo(
-    () => ({ user, loading, maintenanceMode, login, logout, register, refreshUser, isAdmin }),
-    [user, loading, maintenanceMode, login, logout, register, refreshUser, isAdmin],
+    () => ({ status, user, isAdmin, signIn, signOut, completeCallback, refresh }),
+    [status, user, isAdmin, signIn, signOut, completeCallback, refresh]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export function useAuth(): AuthContextType {
-  const ctx = React.useContext(AuthContext)
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider")
-  return ctx
+export function useAuth(): AuthContextValue {
+  const context = React.useContext(AuthContext)
+  if (!context) throw new Error("useAuth must be used within an AuthProvider")
+  return context
 }

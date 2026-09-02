@@ -1,70 +1,28 @@
-import mysql from 'mysql2/promise';
-import { config } from '../config/index.js';
-import { log } from '../utils/log.js';
+/**
+ * SQLite connection (bun:sqlite). The database lives at DATA_DIR/voidfeedback.db
+ * so data persists across restarts — feedback threads are always there after a reboot.
+ *
+ * The schema is applied synchronously at module load so every module that
+ * imports `db` can prepare statements immediately (import order is safe).
+ */
 
-// Create connection pool for better performance
-export const pool = mysql.createPool({
-  ...config.database,
-  // Enable named placeholders for safer queries
-  namedPlaceholders: true,
-  // Automatically parse dates
-  dateStrings: false,
-  // Keep multiple statements disabled to blunt any SQL injection that slips through
-  multipleStatements: false,
-});
+import { Database } from "bun:sqlite"
+import { mkdirSync, readFileSync } from "node:fs"
+import path from "node:path"
+import config from "../config.js"
 
-// Test database connection
-export async function testConnection(): Promise<boolean> {
-  try {
-    const connection = await pool.getConnection();
-    await connection.ping();
-    connection.release();
-    log.ok('Database connection established');
-    return true;
-  } catch (error) {
-    log.error('Database connection failed', error as Error);
-    return false;
-  }
-}
+mkdirSync(config.dataDir, { recursive: true })
 
-// Execute query with error handling
-export async function query<T = any>(sql: string, params?: any): Promise<T> {
-  try {
-    const [rows] = await pool.execute(sql, params);
-    return rows as T;
-  } catch (error) {
-    log.error('Database query error', error as Error);
-    throw error;
-  }
-}
+export const db = new Database(path.join(config.dataDir, "voidfeedback.db"))
+db.exec("PRAGMA journal_mode = WAL;")
+db.exec("PRAGMA foreign_keys = ON;")
 
-// Get a single row
-export async function queryOne<T = any>(sql: string, params?: any): Promise<T | null> {
-  const rows = await query<T[]>(sql, params);
-  return rows.length > 0 ? rows[0] : null;
-}
+// Apply schema.sql — idempotent (all statements use IF NOT EXISTS).
+const schema = readFileSync(path.join(import.meta.dir, "schema.sql"), "utf8")
+db.exec(schema)
 
-// Execute transaction
-export async function transaction<T>(
-  callback: (connection: mysql.PoolConnection) => Promise<T>
-): Promise<T> {
-  const connection = await pool.getConnection();
-  await connection.beginTransaction();
+db.exec("PRAGMA optimize;")
 
-  try {
-    const result = await callback(connection);
-    await connection.commit();
-    return result;
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
-}
-
-// Gracefully close pool
-export async function closePool(): Promise<void> {
-  await pool.end();
-  log.ok('Database connection pool closed');
+export function now(): number {
+  return Date.now()
 }

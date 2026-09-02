@@ -1,167 +1,293 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+/**
+ * Void Feedback API client — backend PKCE auth proxied through the gateway
+ * (same pattern as VoidBoard). The gateway issues an httpOnly session cookie;
+ * the browser never touches OAuth tokens.
+ */
 
-const USER_KEY = 'va_user';
+import type { ThreadDetail, ThreadSummary, Message, AdminStats, SourceStat, NotifyTarget, ThreadType, ThreadStatus, ThreadPriority, NotifyTargetType, NotifyEvent } from "./types"
 
-export interface ApiError {
-  error: string;
-  message?: string;
-  details?: any;
-  status?: number;
+// Re-export types so consumers can import them from "@/lib/api".
+export type {
+  ThreadDetail, ThreadSummary, Message, AdminStats, SourceStat,
+  NotifyTarget, ThreadType, ThreadStatus, ThreadPriority,
+  NotifyTargetType, NotifyEvent,
 }
 
-export class RateLimitError extends Error {
-  status: number;
-  retryAfter: number;
-  constructor(message: string, retryAfter = 60) {
-    super(message);
-    this.name = 'RateLimitError';
-    this.status = 429;
-    this.retryAfter = retryAfter;
+export type AuthMode = "backend" | "browser"
+export const authMode: AuthMode = (import.meta.env.VITE_AUTH_MODE as AuthMode) || "backend"
+export const gatewayBase = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "")
+export const voidfeedbackUrl = (import.meta.env.VITE_FEEDBACK_URL || (typeof window !== "undefined" ? window.location.origin : "http://localhost:5179")).replace(/\/+$/, "")
+
+class ApiError extends Error {
+  status: number
+  constructor(message: string, status = 500) {
+    super(message)
+    this.status = status
   }
 }
 
-function generateUUID(): string {
-  const arr = new Uint8Array(16);
-  crypto.getRandomValues(arr);
-  arr[6] = (arr[6] & 0x0f) | 0x40;
-  arr[8] = (arr[8] & 0x3f) | 0x80;
-  const hex = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
-}
-
-export function getDeviceId(): string {
-  let id = localStorage.getItem('va_device_id');
-  if (!id) {
-    id = generateUUID();
-    localStorage.setItem('va_device_id', id);
+async function readError(res: Response): Promise<string> {
+  try {
+    const data = await res.json()
+    return data?.error || data?.error_description || `Request failed (${res.status})`
+  } catch {
+    return `Request failed (${res.status})`
   }
-  return id;
 }
 
-export function getDeviceName(): string {
-  return navigator.userAgent;
-}
-
-class ApiClient {
-  private baseUrl: string;
-
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
-  }
-
-  async request<T>(
-    endpoint: string,
-    options: RequestInit = {},
-    isRetry = false
-  ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-
-    // Remove Content-Type for FormData (browser sets it with boundary)
-    if (options.body instanceof FormData) {
-      delete (headers as any)['Content-Type'];
+async function gateway<T>(path: string, options: RequestInit = {}, retry = true): Promise<T> {
+  const res = await fetch(`${gatewayBase}${path}`, {
+    ...options,
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers as Record<string, string>),
+    },
+  })
+  if (!res.ok) {
+    if (res.status === 401 && retry) {
+      const refreshed = await refreshSession()
+      if (refreshed) return gateway<T>(path, options, false)
     }
-
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
-        credentials: 'include', // Send cookies cross-origin
-      });
-
-      if (response.status === 429) {
-        const retryAfter = parseInt(response.headers.get('retry-after') || '60', 10);
-        const err = new RateLimitError('Too many requests. Please wait before trying again.', retryAfter);
-        (err as any).error = err.message;
-        throw err;
-      }
-
-      if (response.status === 401 && !isRetry) {
-        // Session expired — redirect to login, but only if we're not already
-        // on the login page (prevents redirect loops when verifyAuth fails
-        // immediately after a login POST).
-        const onLoginPage = window.location.pathname === '/login' || window.location.pathname.startsWith('/login/');
-        if (!onLoginPage) {
-          clearAuth();
-          const currentPath = window.location.pathname + window.location.search;
-          window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
-        }
-        throw new Error('Session expired');
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType?.includes('application/json')) {
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        return {} as T;
-      }
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        const err = data as ApiError;
-        err.status = response.status;
-        throw err;
-      }
-
-      return data as T;
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
-    }
+    throw new ApiError(await readError(res), res.status)
   }
+  if (res.status === 204) return undefined as T
+  return (await res.json()) as T
+}
 
-  async get<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET' });
+// --- Auth ---
+
+export async function startLogin(keepMeLoggedIn = true): Promise<void> {
+  if (authMode === "browser") {
+    const { VoidAuth } = await import("@voidauth/client/browser")
+    const sdk = new VoidAuth({ issuer: import.meta.env.VITE_VOIDAUTH_ISSUER || "https://auth.stwupid.tech", clientId: import.meta.env.VITE_VOIDFEEDBACK_CLIENT_ID || "voidfeedback", redirectUri: `${window.location.origin}/oauth/callback`, scopes: ["openid", "profile", "email"] })
+    await sdk.login()
+    return
   }
+  sessionStorage.setItem("voidfeedback_keep_me_logged_in", keepMeLoggedIn ? "1" : "0")
+  const { authUrl } = await gateway<{ authUrl: string }>("/api/auth/login")
+  const separator = authUrl.includes("?") ? "&" : "?"
+  window.location.href = `${authUrl}${separator}keep_me_logged_in=${keepMeLoggedIn}`
+}
 
-  async post<T>(endpoint: string, body?: any): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      body: body ? JSON.stringify(body) : undefined,
-    });
+export async function handleCallback(code: string, state: string, keepMeLoggedIn = true): Promise<User> {
+  if (authMode === "browser") {
+    const { VoidAuth } = await import("@voidauth/client/browser")
+    const sdk = new VoidAuth({ issuer: import.meta.env.VITE_VOIDAUTH_ISSUER || "https://auth.stwupid.tech", clientId: import.meta.env.VITE_VOIDFEEDBACK_CLIENT_ID || "voidfeedback", redirectUri: `${window.location.origin}/oauth/callback`, scopes: ["openid", "profile", "email"] })
+    await sdk.login()
+    await sdk.handleCallback()
+    const token = sdk.getToken()
+    const { user } = await gateway<{ user: User }>("/api/auth/browser-session", { method: "POST", body: JSON.stringify({ accessToken: token }) })
+    return user
   }
+  const { user } = await gateway<{ user: User }>("/api/auth/exchange", { method: "POST", body: JSON.stringify({ code, state, keepMeLoggedIn }) })
+  return user
+}
 
-  async patch<T>(endpoint: string, body?: any): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: 'PATCH',
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  }
+export interface User {
+  id: string
+  name: string
+  email: string
+  picture?: string | null
+  role?: string
+}
 
-  async delete<T>(endpoint: string, body?: any): Promise<T> {
-    return this.request<T>(endpoint, { 
-      method: 'DELETE',
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  }
-
-  async upload<T>(endpoint: string, formData: FormData): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      body: formData,
-    });
+export async function getMe(): Promise<User | null> {
+  if (authMode === "browser") return null
+  try {
+    const { user } = await gateway<{ user: User }>("/api/auth/me")
+    return user
+  } catch {
+    return null
   }
 }
 
-export const apiClient = new ApiClient(API_BASE_URL);
-
-// User display data storage (for instant UI rendering, NOT for auth)
-export function storeUser(user: any): void {
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+export async function refreshSession(): Promise<boolean> {
+  try {
+    const res = await fetch(`${gatewayBase}/api/auth/refresh`, { method: "POST", credentials: "include" })
+    return res.ok
+  } catch {
+    return false
+  }
 }
 
-export function getStoredUser(): any | null {
-  const userData = localStorage.getItem(USER_KEY);
-  return userData ? JSON.parse(userData) : null;
+export async function logout(): Promise<void> {
+  await gateway("/api/auth/logout", { method: "POST" }).catch(() => {})
 }
 
-export function clearAuth(): void {
-  localStorage.removeItem(USER_KEY);
-  localStorage.removeItem('va_keep_logged_in');
+// --- Threads ---
+
+export interface ListParams {
+  type?: ThreadType
+  status?: ThreadStatus
+  sourceApp?: string
+  assignee?: string
+  author?: string
+  unanswered?: boolean
+  mine?: boolean
+  publicOnly?: boolean
+  q?: string
+  sort?: "recent" | "top" | "active"
+  limit?: number
+  offset?: number
+}
+
+export function listThreads(params: ListParams = {}): Promise<{ threads: ThreadSummary[]; total: number }> {
+  const q = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== "") q.set(k, String(v))
+  }
+  const qs = q.toString()
+  return gateway(`/api/threads${qs ? `?${qs}` : ""}`)
+}
+
+export function getThread(id: string): Promise<{ thread: ThreadDetail }> {
+  return gateway(`/api/threads/${id}`)
+}
+
+export function createThread(input: { type: ThreadType; sourceApp?: string | null; title: string; bodyMarkdown: string; priority: ThreadPriority }): Promise<{ thread: ThreadDetail }> {
+  return gateway("/api/threads", { method: "POST", body: JSON.stringify(input) })
+}
+
+export function updateThread(id: string, patch: Partial<{ title: string; bodyMarkdown: string; type: ThreadType; status: ThreadStatus; priority: ThreadPriority; assigneeId: string | null; isPublic: boolean }>): Promise<{ thread: ThreadDetail }> {
+  return gateway(`/api/threads/${id}`, { method: "PATCH", body: JSON.stringify(patch) })
+}
+
+export function deleteThread(id: string): Promise<{ ok: boolean }> {
+  return gateway(`/api/threads/${id}`, { method: "DELETE" })
+}
+
+// --- Messages ---
+
+export function listMessages(threadId: string): Promise<{ messages: Message[] }> {
+  return gateway(`/api/threads/${threadId}/messages`)
+}
+
+export function sendMessage(threadId: string, body: string, isInternal = false): Promise<{ message: Message }> {
+  return gateway(`/api/threads/${threadId}/messages`, { method: "POST", body: JSON.stringify({ body, isInternal }) })
+}
+
+export function deleteMessage(threadId: string, messageId: string): Promise<{ ok: boolean }> {
+  return gateway(`/api/threads/${threadId}/messages/${messageId}`, { method: "DELETE" })
+}
+
+// --- Votes ---
+
+export function voteThread(threadId: string): Promise<{ voted: boolean; votes: number }> {
+  return gateway(`/api/threads/${threadId}/vote`, { method: "POST" })
+}
+
+export function unvoteThread(threadId: string): Promise<{ voted: boolean; votes: number }> {
+  return gateway(`/api/threads/${threadId}/vote`, { method: "DELETE" })
+}
+
+// --- Admin ---
+
+export function getStats(): Promise<AdminStats> {
+  return gateway("/api/admin/stats")
+}
+
+export function getSources(): Promise<{ sources: SourceStat[] }> {
+  return gateway("/api/admin/sources")
+}
+
+export function listTargets(): Promise<{ targets: NotifyTarget[] }> {
+  return gateway("/api/admin/notifications/targets")
+}
+
+export function createTarget(input: { type: NotifyTargetType; name: string; config: Record<string, unknown>; events: NotifyEvent[]; enabled: boolean }): Promise<{ target: NotifyTarget }> {
+  return gateway("/api/admin/notifications/targets", { method: "POST", body: JSON.stringify(input) })
+}
+
+export function updateTarget(id: string, patch: Partial<{ name: string; config: Record<string, unknown>; events: NotifyEvent[]; enabled: boolean }>): Promise<{ target: NotifyTarget }> {
+  return gateway(`/api/admin/notifications/targets/${id}`, { method: "PATCH", body: JSON.stringify(patch) })
+}
+
+export function deleteTarget(id: string): Promise<{ ok: boolean }> {
+  return gateway(`/api/admin/notifications/targets/${id}`, { method: "DELETE" })
+}
+
+export function testTarget(id: string): Promise<{ ok: boolean; error?: string }> {
+  return gateway(`/api/admin/notifications/test/${id}`, { method: "POST" })
+}
+
+// --- Uploads ---
+
+export interface UploadResult {
+  url: string
+  filename: string
+  width?: number
+  height?: number
+  size: number
+}
+
+/** Upload a single image attachment. Returns the URL to embed in markdown. */
+export async function uploadImage(file: File): Promise<UploadResult> {
+  const formData = new FormData()
+  formData.append("file", file)
+  const res = await fetch(`${gatewayBase}/api/uploads`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data?.error || `Upload failed (${res.status})`)
+  }
+  return (await res.json()) as UploadResult
+}
+
+// --- Realtime ---
+
+export function openThreadSocket(threadId: string): WebSocket {
+  const proto = window.location.protocol === "https:" ? "wss" : "ws"
+  const base = gatewayBase || `${proto}://${window.location.host}`
+  const wsUrl = base.replace(/^http/, "ws")
+  return new WebSocket(`${wsUrl}/api/ws?threadId=${encodeURIComponent(threadId)}`)
+}
+
+export function openSupportSocket(): WebSocket {
+  const proto = window.location.protocol === "https:" ? "wss" : "ws"
+  const base = gatewayBase || `${proto}://${window.location.host}`
+  const wsUrl = base.replace(/^http/, "ws")
+  return new WebSocket(`${wsUrl}/api/ws?lobby=support`)
+}
+
+export function openAdminSocket(): WebSocket {
+  const proto = window.location.protocol === "https:" ? "wss" : "ws"
+  const base = gatewayBase || `${proto}://${window.location.host}`
+  const wsUrl = base.replace(/^http/, "ws")
+  return new WebSocket(`${wsUrl}/api/ws?admin=1`)
+}
+
+// --- Namespace bundle — consumers can import { api } and call api.fn() ---
+
+export const api = {
+  authMode,
+  startLogin,
+  handleCallback,
+  getMe,
+  refreshSession,
+  logout,
+  listThreads,
+  getThread,
+  createThread,
+  updateThread,
+  deleteThread,
+  listMessages,
+  sendMessage,
+  deleteMessage,
+  voteThread,
+  unvoteThread,
+  getStats,
+  getSources,
+  listTargets,
+  createTarget,
+  updateTarget,
+  deleteTarget,
+  testTarget,
+  uploadImage,
+  openThreadSocket,
+  openSupportSocket,
+  openAdminSocket,
 }
