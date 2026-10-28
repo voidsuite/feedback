@@ -96,7 +96,7 @@ export function SubmitForm({ sourceApp, onCreated, autoFocus }: { sourceApp?: st
       {!sourceApp && (
         <div className="space-y-1.5">
           <Label>Which app is this for?</Label>
-          <Select value={selectedApp} onValueChange={setSelectedApp}>
+          <Select value={selectedApp} onValueChange={(value) => setSelectedApp(value ?? "")}>
             <SelectTrigger className="w-full sm:w-64">
               <SelectValue placeholder="Select an app…" />
             </SelectTrigger>

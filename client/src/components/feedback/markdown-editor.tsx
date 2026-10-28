@@ -289,15 +289,13 @@ function HelpMenu({ onInsert }: { onInsert: (text: string, offset?: number) => v
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          tabIndex={-1}
-          className="rounded p-1.5 text-muted-foreground/70 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          title="Markdown help"
-        >
-          <HelpCircle className="size-3.5" />
-        </button>
+      <PopoverTrigger
+        type="button"
+        tabIndex={-1}
+        className="rounded p-1.5 text-muted-foreground/70 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        title="Markdown help"
+      >
+        <HelpCircle className="size-3.5" />
       </PopoverTrigger>
       <PopoverContent side="bottom" align="end" className="w-72 p-2">
         <div className="text-xs font-medium text-muted-foreground mb-2">Markdown shortcuts</div>

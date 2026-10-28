@@ -148,6 +148,10 @@ export function LiveChat({ thread, isAdmin, currentUserPicture, onThreadUpdate }
 
       <div className="border-t border-border p-3">
         <div className="flex items-end gap-2">
+          <Avatar className="mb-1 hidden size-7 shrink-0 sm:flex">
+            <AvatarImage src={currentUserPicture || undefined} alt="You" />
+            <AvatarFallback className="text-[9px]"><User className="size-3.5" /></AvatarFallback>
+          </Avatar>
           <div className="flex-1 min-w-0">
             {isAdmin && (
               <div className="relative mb-2">
